@@ -15,15 +15,49 @@ class MCPService {
     
     private init() {}
     
-    // Simplified MCP tools - hardcoded for Home Assistant based on documentation
-    // The actual tools are exposed by the Assist API
+    // Map Home Assistant MCP tool names to actual services
+    private func mapToolToService(_ toolName: String) -> (domain: String, service: String) {
+        switch toolName {
+        case "HassTurnOn":
+            return ("homeassistant", "turn_on")
+        case "HassTurnOff":
+            return ("homeassistant", "turn_off")
+        case "HassSetCoverPosition":
+            return ("cover", "set_cover_position")
+        case "HassSetClimateTemperature":
+            return ("climate", "set_temperature")
+        case "HassGetCameraSnapshot":
+            return ("camera", "snapshot")
+        case "HassPlayMedia":
+            return ("media_player", "play_media")
+        case "HassStartTimer":
+            return ("timer", "start")
+        case "HassPauseTimer":
+            return ("timer", "pause")
+        case "HassRestartTimer":
+            return ("timer", "restart")
+        case "HassCancelTimer":
+            return ("timer", "cancel")
+        default:
+            return ("homeassistant", "turn_on")
+        }
+    }
+    
+    // Home Assistant MCP tools - these are the actual tools exposed by the MCP server
+    // Based on Home Assistant's conversation/assist API
     func getAvailableTools() -> [MCPTool] {
         return [
-            MCPTool(name: "get_states", description: "Get the current states of entities in Home Assistant"),
-            MCPTool(name: "set_state", description: "Set the state of an entity in Home Assistant"),
-            MCPTool(name: "call_service", description: "Call a Home Assistant service"),
-            MCPTool(name: "get_device_info", description: "Get information about a device"),
-            MCPTool(name: "get_config", description: "Get the Home Assistant configuration")
+            MCPTool(name: "HassTurnOn", description: "Turn on an entity in Home Assistant. Arguments: name (entity name), area (optional area name)"),
+            MCPTool(name: "HassTurnOff", description: "Turn off an entity in Home Assistant. Arguments: name (entity name), area (optional area name)"),
+            MCPTool(name: "HassSetCoverPosition", description: "Set the position of a cover. Arguments: name (entity name), area (optional), position (0-100)"),
+            MCPTool(name: "HassSetClimateTemperature", description: "Set the temperature of a climate entity. Arguments: name (entity name), temperature"),
+            MCPTool(name: "HassGetCameraSnapshot", description: "Get a snapshot from a camera. Arguments: name (entity name)"),
+            MCPTool(name: "HassNavigate", description: "Navigate in the map. Arguments: name (entity name), gps (GPS coordinates)"),
+            MCPTool(name: "HassPlayMedia", description: "Play media on a media player. Arguments: name (entity name), media_content_id, media_content_type"),
+            MCPTool(name: "HassCancelTimer", description: "Cancel a timer. Arguments: name (entity name)"),
+            MCPTool(name: "HassPauseTimer", description: "Pause a timer. Arguments: name (entity name)"),
+            MCPTool(name: "HassStartTimer", description: "Start a timer. Arguments: name (entity name), duration"),
+            MCPTool(name: "HassRestartTimer", description: "Restart a timer. Arguments: name (entity name)")
         ]
     }
     
@@ -42,59 +76,30 @@ class MCPService {
         let method: String
         var requestBody: [String: Any] = [:]
         
-        switch name {
-        case "call_service":
-            method = "POST"
-            guard let domain = arguments["domain"] as? String,
-                  let service = arguments["service"] as? String else {
-                throw MCPError.invalidArguments
+        // Home Assistant MCP tools - these are Assist API conversation intents
+        // We need to map the tool to the appropriate Home Assistant service call
+        method = "POST"
+        
+        // Map tool names to Home Assistant services
+        let (domain, service) = mapToolToService(name)
+        apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
+        
+        // Build service data from arguments
+        var serviceData: [String: Any] = [:]
+        
+        // Add all arguments as service data
+        for (key, value) in arguments {
+            if let strValue = value as? String {
+                serviceData[key] = strValue
+            } else if let arrayValue = value as? [Any], let firstItem = arrayValue.first as? String {
+                // Handle arrays - take first element
+                serviceData[key] = firstItem
+            } else {
+                serviceData[key] = value
             }
-            apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
-            // Home Assistant API: domain and service are in the URL, NOT in the body
-            // Request body should only contain service data like entity_id
-            var serviceData: [String: Any] = [:]
-            
-            // Extract entity_id if present (handle both String and Array)
-            if let entityId = arguments["entity_id"] as? String {
-                serviceData["entity_id"] = entityId
-            } else if let entityIdArray = arguments["entity_id"] as? [Any], let firstEntity = entityIdArray.first as? String {
-                serviceData["entity_id"] = firstEntity
-            }
-            
-            // Extract any service_data from arguments
-            if let extraData = arguments["service_data"] as? [String: Any] {
-                serviceData.merge(extraData) { (_, new) in new }
-            }
-            
-            // Extract other fields that might be service data
-            for (key, value) in arguments {
-                if key != "domain" && key != "service" && key != "entity_id" && key != "service_data" {
-                    serviceData[key] = value
-                }
-            }
-            
-            requestBody = serviceData
-            
-        case "get_states":
-            method = "GET"
-            apiURL = baseURL.appendingPathComponent("/api/states")
-            
-        case "set_state":
-            method = "POST"
-            guard let entityId = arguments["entity_id"] as? String else {
-                throw MCPError.invalidArguments
-            }
-            let state = arguments["state"] as? String ?? ""
-            let attributes = arguments["attributes"] as? [String: Any] ?? [:]
-            apiURL = baseURL.appendingPathComponent("/api/states/\(entityId)")
-            requestBody = [
-                "state": state,
-                "attributes": attributes
-            ]
-            
-        default:
-            return "Tool \(name) not yet implemented in simplified client"
         }
+        
+        requestBody = serviceData
         
         var request = URLRequest(url: apiURL)
         request.httpMethod = method
