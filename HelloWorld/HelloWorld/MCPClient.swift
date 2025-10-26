@@ -12,20 +12,30 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server using JSON-RPC
+    // Fetch tools from MCP server via proxy or direct
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        // Convert SSE URL to base endpoint (remove /sse, use base path)
-        var baseURL = sseURL
-        if baseURL.hasSuffix("/sse") {
-            baseURL = String(baseURL.dropLast(4)) // Remove /sse
+        let settings = SettingsManager.shared
+        
+        // Use proxy URL if configured, otherwise use direct SSE URL
+        var endpointURL: String
+        if !settings.mcpProxyURL.isEmpty {
+            endpointURL = settings.mcpProxyURL
+            print("🔗 Using mcp-proxy at: \(endpointURL)")
+        } else {
+            // Convert SSE URL to base endpoint (remove /sse, use base path)
+            endpointURL = sseURL
+            if endpointURL.hasSuffix("/sse") {
+                endpointURL = String(endpointURL.dropLast(4)) // Remove /sse
+            }
+            print("🔗 Using direct MCP endpoint: \(endpointURL)")
         }
         
-        guard let url = URL(string: baseURL) else {
+        guard let url = URL(string: endpointURL) else {
             throw MCPError.invalidURL
         }
         
         print("📍 SSE URL: \(sseURL)")
-        print("📍 Base URL: \(baseURL)")
+        print("📍 Endpoint URL: \(endpointURL)")
         
         // Send JSON-RPC request in body
         let requestBody: [String: Any] = [
@@ -102,15 +112,23 @@ class MCPClient {
         }
     }
     
-    // Call a tool using JSON-RPC
+    // Call a tool via proxy or direct
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        // Convert SSE URL to base endpoint (remove /sse, use base path)
-        var baseURL = sseURL
-        if baseURL.hasSuffix("/sse") {
-            baseURL = String(baseURL.dropLast(4)) // Remove /sse
+        let settings = SettingsManager.shared
+        
+        // Use proxy URL if configured, otherwise use direct SSE URL
+        var endpointURL: String
+        if !settings.mcpProxyURL.isEmpty {
+            endpointURL = settings.mcpProxyURL
+        } else {
+            // Convert SSE URL to base endpoint (remove /sse, use base path)
+            endpointURL = sseURL
+            if endpointURL.hasSuffix("/sse") {
+                endpointURL = String(endpointURL.dropLast(4)) // Remove /sse
+            }
         }
         
-        guard let url = URL(string: baseURL) else {
+        guard let url = URL(string: endpointURL) else {
             throw MCPError.invalidURL
         }
         
