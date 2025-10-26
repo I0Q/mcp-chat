@@ -12,8 +12,88 @@ class MCPService {
     private var eventSource: URLSessionDataTask?
     private var connected = false
     private var pendingRequests: [String: CheckedContinuation<Data, Error>] = [:]
+    private var cachedTools: [MCPTool] = []
     
     private init() {}
+    
+    // Fetch tools from the MCP server
+    func fetchTools() async throws -> [MCPTool] {
+        // If already cached, return cached tools
+        if !cachedTools.isEmpty {
+            return cachedTools
+        }
+        
+        let settings = SettingsManager.shared
+        
+        guard settings.mcpEnabled,
+              let baseURL = URL(string: settings.mcpSSEURL.replacingOccurrences(of: "/mcp_server/sse", with: "")),
+              !settings.mcpAccessToken.isEmpty else {
+            throw MCPError.notConfigured
+        }
+        
+        // Use Home Assistant's Assist API to get available intents/tools
+        let assistURL = baseURL.appendingPathComponent("/api/assist_pipeline/conversation/intents")
+        
+        var request = URLRequest(url: assistURL)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        print("🔍 Fetching tools from MCP server...")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            // If Assist API doesn't work, fall back to hardcoded tools
+            print("⚠️ Could not fetch tools from MCP server, using defaults")
+            return getDefaultTools()
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            let intentsResponse = try decoder.decode(AssistIntentsResponse.self, from: data)
+            
+            // Convert intents to tools
+            let tools = intentsResponse.intents?.map { intent in
+                MCPTool(name: intent.name, description: intent.description)
+            } ?? []
+            
+            print("✅ Fetched \(tools.count) tools from MCP server")
+            cachedTools = tools
+            return tools
+        } catch {
+            print("⚠️ Could not parse tools from server: \(error), using defaults")
+            return getDefaultTools()
+        }
+    }
+    
+    // Get default tools as fallback
+    func getDefaultTools() -> [MCPTool] {
+        if !cachedTools.isEmpty {
+            return cachedTools
+        }
+        
+        return [
+            MCPTool(name: "HassTurnOn", description: "Turn on an entity in Home Assistant. Arguments: name (entity name)"),
+            MCPTool(name: "HassTurnOff", description: "Turn off an entity in Home Assistant. Arguments: name (entity name)"),
+            MCPTool(name: "HassSetPosition", description: "Set the position of a cover. Arguments: name (entity name), position (0-100)"),
+            MCPTool(name: "HassCancelAllTimers", description: "Cancel all timers. No arguments."),
+            MCPTool(name: "HassLightSet", description: "Set light properties. Arguments: name (entity name), brightness (0-255), color_name (optional)"),
+            MCPTool(name: "HassClimateSetTemperature", description: "Set climate temperature. Arguments: name (entity name), temperature"),
+            MCPTool(name: "HassListAddItem", description: "Add item to list. Arguments: name (entity name), item"),
+            MCPTool(name: "HassListCompleteItem", description: "Complete list item. Arguments: name (entity name), item"),
+            MCPTool(name: "HassMediaUnpause", description: "Unpause media player. Arguments: name (entity name)"),
+            MCPTool(name: "HassMediaPause", description: "Pause media player. Arguments: name (entity name)"),
+            MCPTool(name: "HassMediaNext", description: "Next media item. Arguments: name (entity name)"),
+            MCPTool(name: "HassMediaPrevious", description: "Previous media item. Arguments: name (entity name)"),
+            MCPTool(name: "HassSetVolume", description: "Set volume. Arguments: name (entity name), volume (0-1)"),
+            MCPTool(name: "HassSetVolumeRelative", description: "Change volume relatively. Arguments: name (entity name), change (positive or negative)"),
+            MCPTool(name: "HassMediaSearchAndPlay", description: "Search and play media. Arguments: name (entity name), query"),
+            MCPTool(name: "todo_get_items", description: "Get todo items. Arguments: name (entity name)"),
+            MCPTool(name: "GetLiveContext", description: "Get live context from Home Assistant")
+        ]
+    }
     
     // Map Home Assistant MCP tool names to actual services
     private func mapToolToService(_ toolName: String) -> (domain: String, service: String) {
@@ -43,22 +123,10 @@ class MCPService {
         }
     }
     
-    // Home Assistant MCP tools - these are the actual tools exposed by the MCP server
-    // Based on Home Assistant's conversation/assist API
+    // Get available tools (try to fetch from server, fallback to defaults)
     func getAvailableTools() -> [MCPTool] {
-        return [
-            MCPTool(name: "HassTurnOn", description: "Turn on an entity in Home Assistant. Arguments: name (entity name), area (optional area name)"),
-            MCPTool(name: "HassTurnOff", description: "Turn off an entity in Home Assistant. Arguments: name (entity name), area (optional area name)"),
-            MCPTool(name: "HassSetCoverPosition", description: "Set the position of a cover. Arguments: name (entity name), area (optional), position (0-100)"),
-            MCPTool(name: "HassSetClimateTemperature", description: "Set the temperature of a climate entity. Arguments: name (entity name), temperature"),
-            MCPTool(name: "HassGetCameraSnapshot", description: "Get a snapshot from a camera. Arguments: name (entity name)"),
-            MCPTool(name: "HassNavigate", description: "Navigate in the map. Arguments: name (entity name), gps (GPS coordinates)"),
-            MCPTool(name: "HassPlayMedia", description: "Play media on a media player. Arguments: name (entity name), media_content_id, media_content_type"),
-            MCPTool(name: "HassCancelTimer", description: "Cancel a timer. Arguments: name (entity name)"),
-            MCPTool(name: "HassPauseTimer", description: "Pause a timer. Arguments: name (entity name)"),
-            MCPTool(name: "HassStartTimer", description: "Start a timer. Arguments: name (entity name), duration"),
-            MCPTool(name: "HassRestartTimer", description: "Restart a timer. Arguments: name (entity name)")
-        ]
+        // Return default tools for now - will be fetched when MCP is enabled
+        return getDefaultTools()
     }
     
     func callTool(name: String, arguments: [String: Any]) async throws -> String {
@@ -193,6 +261,15 @@ struct MCPCallToolResponse: Codable {
             let type: String
             let text: String
         }
+    }
+}
+
+struct AssistIntentsResponse: Codable {
+    let intents: [AssistIntent]?
+    
+    struct AssistIntent: Codable {
+        let name: String
+        let description: String?
     }
 }
 

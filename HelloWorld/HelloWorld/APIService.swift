@@ -44,7 +44,19 @@ class APIService {
         
         // If MCP is enabled, add tools to the request
         if settings.mcpEnabled {
-            let tools = MCPService.shared.getAvailableTools()
+            // Try to fetch tools from server, fallback to defaults
+            var tools = MCPService.shared.getAvailableTools()
+            
+            // Attempt to fetch from server if not already cached
+            do {
+                let fetchedTools = try await MCPService.shared.fetchTools()
+                if !fetchedTools.isEmpty {
+                    tools = fetchedTools
+                }
+            } catch {
+                print("⚠️ Could not fetch tools from server, using defaults: \(error)")
+            }
+            
             if !tools.isEmpty {
                 requestBody["tools"] = tools.map { tool in
                     [
