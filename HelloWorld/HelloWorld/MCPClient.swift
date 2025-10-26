@@ -14,7 +14,13 @@ class MCPClient {
     
     // Fetch tools from MCP server using JSON-RPC
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
+        // Remove /sse suffix if present to get the base URL
+        var endpointURL = sseURL
+        if endpointURL.hasSuffix("/mcp_server/sse") {
+            endpointURL = String(endpointURL.dropLast(4)) // Remove "/sse"
+        }
+        
+        guard let url = URL(string: endpointURL) else {
             throw MCPError.invalidURL
         }
         
@@ -38,7 +44,9 @@ class MCPClient {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
-        print("🔗 Fetching tools from MCP server at: \(sseURL)")
+        print("🔗 Fetching tools from MCP server")
+        print("📍 Original URL: \(sseURL)")
+        print("📍 Endpoint URL: \(endpointURL)")
         print("📤 Request: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -94,7 +102,13 @@ class MCPClient {
     
     // Call a tool using JSON-RPC
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
+        // Remove /sse suffix if present to get the base URL
+        var endpointURL = sseURL
+        if endpointURL.hasSuffix("/mcp_server/sse") {
+            endpointURL = String(endpointURL.dropLast(4)) // Remove "/sse"
+        }
+        
+        guard let url = URL(string: endpointURL) else {
             throw MCPError.invalidURL
         }
         
