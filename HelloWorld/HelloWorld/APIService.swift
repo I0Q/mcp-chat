@@ -105,7 +105,46 @@ class APIService {
             }
             
             let secondResponseData = try decoder.decode(ChatCompletionResponse.self, from: secondData)
-            return secondResponseData.choices.first?.message.content ?? toolResult
+            
+            // Check if second response has tool calls (continue tool calling loop)
+            if let secondToolCall = secondResponseData.choices.first?.message.toolCalls?.first {
+                // Execute second tool call and make another request
+                let secondToolResult = try await executeToolCall(secondToolCall)
+                
+                messages.append([
+                    "role": "assistant",
+                    "tool_calls": [[
+                        "id": secondToolCall.id,
+                        "type": "function",
+                        "function": [
+                            "name": secondToolCall.function.name,
+                            "arguments": secondToolCall.function.arguments
+                        ] as [String: Any]
+                    ]]
+                ])
+                
+                messages.append([
+                    "role": "tool",
+                    "name": secondToolCall.function.name,
+                    "content": secondToolResult,
+                    "tool_call_id": secondToolCall.id
+                ])
+                
+                requestBody["messages"] = messages
+                request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+                
+                let (thirdData, thirdResponse) = try await URLSession.shared.data(for: request)
+                
+                guard let thirdHttpResponse = thirdResponse as? HTTPURLResponse,
+                      (200...299).contains(thirdHttpResponse.statusCode) else {
+                    throw APIError.httpError((thirdResponse as? HTTPURLResponse)?.statusCode ?? 500)
+                }
+                
+                let thirdResponseData = try decoder.decode(ChatCompletionResponse.self, from: thirdData)
+                return thirdResponseData.choices.first?.message.content ?? ""
+            }
+            
+            return secondResponseData.choices.first?.message.content ?? ""
         }
         
         return responseData.choices.first?.message.content ?? ""
