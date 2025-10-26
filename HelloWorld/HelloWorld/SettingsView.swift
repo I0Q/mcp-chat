@@ -14,7 +14,7 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
-            Section(header: Text("Server Configuration")) {
+            Section(header: Text("LLM Server Configuration")) {
                 TextField("Server URL", text: $settings.serverURL)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -23,10 +23,22 @@ struct SettingsView: View {
                     Text("openai/gpt-oss-120b").tag("openai/gpt-oss-120b")
                     Text("openai/gpt-oss-20b").tag("openai/gpt-oss-20b")
                 }
+            }
+            
+            Section(header: Text("MCP Server Configuration")) {
+                Toggle("Enable MCP", isOn: $settings.mcpEnabled)
                 
-                Button("Save Settings") {
-                    alertMessage = "Settings saved successfully!"
-                    showAlert = true
+                if settings.mcpEnabled {
+                    TextField("Server Name", text: $settings.mcpServerName)
+                        .autocapitalization(.none)
+                    
+                    TextField("SSE URL", text: $settings.mcpSSEURL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    
+                    SecureField("Access Token", text: $settings.mcpAccessToken)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
                 }
             }
             
@@ -47,29 +59,32 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-        }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Settings")
-                    .font(.headline)
             }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .alert("Settings Saved", isPresented: $showAlert) {
-            Button("OK") { }
-        } message: {
-            Text(alertMessage)
-        }
-        .onChange(of: settings.serverURL) {
-            guard let url = URL(string: settings.serverURL), url.scheme != nil else {
-                alertMessage = "Invalid URL format"
-                showAlert = true
-                return
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.headline)
+                }
             }
-        }
-        .onChange(of: settings.selectedModel) {
-            alertMessage = "Settings saved automatically!"
-            showAlert = true
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Settings Saved", isPresented: $showAlert) {
+                Button("OK") { }
+            } message: {
+                Text(alertMessage)
+            }
+            .onChange(of: settings.serverURL) {
+                guard let url = URL(string: settings.serverURL), url.scheme != nil else {
+                    alertMessage = "Invalid URL format"
+                    showAlert = true
+                    return
+                }
+            }
+            .onChange(of: settings.mcpEnabled) {
+                if settings.mcpEnabled {
+                    alertMessage = "MCP enabled!"
+                    showAlert = true
+                }
+            }
         }
     }
 }
@@ -79,4 +94,3 @@ struct SettingsView: View {
         SettingsView()
     }
 }
-

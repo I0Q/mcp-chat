@@ -21,14 +21,30 @@ class APIService {
         }
         
         // Convert chat history to API format
-        let messages = chatHistory.map { msg in
+        var messages = chatHistory.map { msg in
             ["role": msg.role, "content": msg.content]
         }
         
-        let requestBody: [String: Any] = [
+        var requestBody: [String: Any] = [
             "model": settings.selectedModel,
             "messages": messages
         ]
+        
+        // If MCP is enabled, add tools to the request
+        if settings.mcpEnabled {
+            let tools = try await MCPService.shared.listTools()
+            if !tools.isEmpty {
+                requestBody["tools"] = tools.map { tool in
+                    [
+                        "type": "function",
+                        "function": [
+                            "name": tool.name,
+                            "description": tool.description ?? ""
+                        ]
+                    ]
+                }
+            }
+        }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -48,7 +64,53 @@ class APIService {
         let decoder = JSONDecoder()
         let responseData = try decoder.decode(ChatCompletionResponse.self, from: data)
         
+        // Check if the model wants to use a tool
+        if let toolCall = responseData.choices.first?.message.toolCalls?.first {
+            // Execute the tool call
+            let toolResult = try await executeToolCall(toolCall)
+            
+            // Add assistant's tool call and tool result to messages
+            messages.append([
+                "role": "assistant",
+                "content": nil,
+                "tool_calls": [[
+                    "id": toolCall.id,
+                    "type": "function",
+                    "function": [
+                        "name": toolCall.function.name,
+                        "arguments": toolCall.function.arguments
+                    ]
+                ]]
+            ])
+            
+            messages.append([
+                "role": "tool",
+                "name": toolCall.function.name,
+                "content": toolResult,
+                "tool_call_id": toolCall.id
+            ])
+            
+            // Make a second request with tool result
+            requestBody["messages"] = messages
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            
+            let (secondData, secondResponse) = try await URLSession.shared.data(for: request)
+            
+            guard let secondHttpResponse = secondResponse as? HTTPURLResponse,
+                  (200...299).contains(secondHttpResponse.statusCode) else {
+                throw APIError.httpError((secondResponse as? HTTPURLResponse)?.statusCode ?? 500)
+            }
+            
+            let secondResponseData = try decoder.decode(ChatCompletionResponse.self, from: secondData)
+            return secondResponseData.choices.first?.message.content ?? toolResult
+        }
+        
         return responseData.choices.first?.message.content ?? ""
+    }
+    
+    private func executeToolCall(_ toolCall: ChatCompletionResponse.ToolCall) async throws -> String {
+        let arguments = try JSONSerialization.jsonObject(with: toolCall.function.arguments.data(using: .utf8)!) as? [String: Any] ?? [:]
+        return try await MCPService.shared.callTool(name: toolCall.function.name, arguments: arguments)
     }
     
     enum APIError: LocalizedError {
@@ -80,7 +142,24 @@ struct ChatCompletionResponse: Codable {
     }
     
     struct Message: Codable {
-        let content: String
+        let content: String?
+        let toolCalls: [ToolCall]?
+        
+        enum CodingKeys: String, CodingKey {
+            case content
+            case toolCalls = "tool_calls"
+        }
+    }
+    
+    struct ToolCall: Codable {
+        let id: String
+        let type: String
+        let function: Function
+        
+        struct Function: Codable {
+            let name: String
+            let arguments: String
+        }
     }
 }
 
