@@ -10,15 +10,7 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
-    private var requestIdCounter = 0
-    private var pendingRequests: [String: CheckedContinuation<[String: Any], Error>] = [:]
-    
     private init() {}
-    
-    private func nextRequestId() -> String {
-        requestIdCounter += 1
-        return "req-\(requestIdCounter)"
-    }
     
     // Fetch tools from MCP server using SSE
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
