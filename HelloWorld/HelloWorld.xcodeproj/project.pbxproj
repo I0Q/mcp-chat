@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DD954DF62EAEC8E100C2E21B /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DD954DF52EAEC8E100C2E21B /* Launch Screen.storyboard */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		DD407FF92EAEA62C00AA422B /* HelloWorld.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HelloWorld.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD954DF52EAEC8E100C2E21B /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +37,7 @@
 		DD407FF02EAEA62C00AA422B = {
 			isa = PBXGroup;
 			children = (
+				DD954DF52EAEC8E100C2E21B /* Launch Screen.storyboard */,
 				DD407FFB2EAEA62C00AA422B /* HelloWorld */,
 				DD407FFA2EAEA62C00AA422B /* Products */,
 			);
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD954DF62EAEC8E100C2E21B /* Launch Screen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +256,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -266,9 +274,10 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-			INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
-			INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
-			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -298,6 +307,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -315,9 +325,10 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-			INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
-			INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
-			INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
+				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
