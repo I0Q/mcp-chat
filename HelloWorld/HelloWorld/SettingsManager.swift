@@ -73,6 +73,7 @@ class SettingsManager: ObservableObject {
         self.mcpServerName = UserDefaults.standard.string(forKey: "mcpServerName") ?? "Home Assistant"
         self.mcpSSEURL = UserDefaults.standard.string(forKey: "mcpSSEURL") ?? "http://homeassistant:8123/mcp_server/sse"
         self.mcpAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwZjA1M2JjZWRjNzk0NTlmOGZjMTQ3ZWYwZDVhZWM4MCIsImlhdCI6MTc2MTQ5NDQwNiwiZXhwIjoyMDc2ODU0NDA2fQ.PSwfpbey4BXe2TmScH5PxVMhgOVsjVqU8sdx5twQjZU"
+        // Use LLM server URL as the mcp-proxy endpoint (since mcp-proxy runs there)
         self.mcpProxyURL = UserDefaults.standard.string(forKey: "mcpProxyURL") ?? "http://192.168.1.232:8000"
         
         // Save defaults if they don't exist

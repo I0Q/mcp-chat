@@ -17,7 +17,8 @@ class MCPClient {
         let settings = SettingsManager.shared
         
         // Use proxy URL from settings, or default to localhost
-        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://localhost:8000" : settings.mcpProxyURL
+        // Connect to mcp-proxy running on Ubuntu server
+        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://192.168.1.232:8000" : settings.mcpProxyURL
         let proxyURLStringWithPath = "\(proxyURLString)/tools/list"
         
         print("🔗 Connecting via mcp-proxy at: \(proxyURLString)")
@@ -55,11 +56,8 @@ class MCPClient {
         print("📡 Response Status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 404 || httpResponse.statusCode == 502 {
-            print("⚠️ mcp-proxy not running")
-            print("💡 To use mcp-proxy:")
-            print("   1. Install: uv tool install git+https://github.com/sparfenyuk/mcp-proxy")
-            print("   2. Run: mcp-proxy --sse-url \(sseURL) --access-token \(accessToken)")
-            print("   3. The proxy will be available at http://localhost:8000")
+            print("⚠️ mcp-proxy not running on server")
+            print("💡 Verify mcp-proxy is running on your Ubuntu server at \(proxyURLString)")
             return []
         }
         
@@ -103,7 +101,7 @@ class MCPClient {
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
         let settings = SettingsManager.shared
         
-        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://localhost:8000" : settings.mcpProxyURL
+        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://192.168.1.232:8000" : settings.mcpProxyURL
         let proxyURLStringWithPath = "\(proxyURLString)/tools/call"
         
         print("🔧 Calling tool via mcp-proxy: \(toolName)")
