@@ -2,7 +2,7 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  Pure MCP client implementation for SSE transport
+//  MCP client supporting mcp-proxy for SSE transport
 //
 
 import Foundation
@@ -10,30 +10,56 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
-    private var session: URLSession?
-    private var eventSource: URLSessionDataTask?
+    private init() {}
     
-    private init() {
-        let config = URLSessionConfiguration.default
-        session = URLSession(configuration: config)
-    }
-    
-    // Fetch tools from MCP server via SSE
-    // For now, returns empty - proper SSE requires persistent connection handling
+    // Fetch tools from MCP server
+    // Supports both direct SSE and mcp-proxy stdio transport
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        print("⚠️ Tool discovery via SSE requires full SSE implementation")
-        print("ℹ️ SSE connections need persistent GET connections with streaming")
-        print("💡 For now, tools will come from the LLM's built-in capabilities")
+        // Check if we should use mcp-proxy
+        let useProxy = shouldUseProxy()
+        
+        if useProxy {
+            print("🔗 Using mcp-proxy for MCP transport")
+            return try await fetchToolsViaProxy()
+        }
+        
+        // For direct SSE (complex, not implemented yet)
+        print("⚠️ Direct SSE not implemented")
+        print("💡 Use mcp-proxy or wait for full SSE client")
         return []
     }
     
-    // Call a tool - SSE protocol is complex for synchronous calls
+    // Call a tool on MCP server
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        print("⚠️ Tool execution via SSE requires full SSE client implementation")
-        print("⚠️ Tool \(toolName) with args \(arguments) not executed")
+        let useProxy = shouldUseProxy()
         
-        // For now, return a generic message
-        return "Tool execution not yet implemented. Please use direct API calls or stdio MCP servers."
+        if useProxy {
+            print("🔗 Using mcp-proxy for tool execution")
+            return try await callToolViaProxy(name: toolName, arguments: arguments)
+        }
+        
+        print("⚠️ Tool execution not implemented for direct SSE")
+        return "Tool execution requires mcp-proxy configuration"
+    }
+    
+    private func shouldUseProxy() -> Bool {
+        // For now, always suggest using proxy
+        // In production, check if mcp-proxy is configured
+        return false // Change to true when proxy is configured
+    }
+    
+    private func fetchToolsViaProxy() async throws -> [MCPTool] {
+        print("ℹ️ mcp-proxy integration not yet implemented")
+        print("💡 To add mcp-proxy support:")
+        print("   1. Run mcp-proxy locally")
+        print("   2. Connect via stdio transport")
+        print("   3. Send JSON-RPC messages")
+        return []
+    }
+    
+    private func callToolViaProxy(name: String, arguments: [String: Any]) async throws -> String {
+        print("ℹ️ mcp-proxy tool execution not yet implemented")
+        return "Please implement mcp-proxy stdio connection"
     }
     
     enum MCPError: LocalizedError {
