@@ -30,6 +30,16 @@ class APIService {
             "messages": messages
         ]
         
+        // Add thinking mode if enabled
+        if settings.thinkingEnabled {
+            let modeMap: [String: String] = [
+                "low": "concise",
+                "medium": "balanced",
+                "high": "expressive"
+            ]
+            requestBody["mode"] = modeMap[settings.thinkingEffort] ?? "balanced"
+        }
+        
         // If MCP is enabled, add tools to the request
         if settings.mcpEnabled {
             let tools = MCPService.shared.getAvailableTools()

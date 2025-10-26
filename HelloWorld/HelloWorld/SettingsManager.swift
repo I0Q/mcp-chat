@@ -23,6 +23,18 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var thinkingEffort: String {
+        didSet {
+            UserDefaults.standard.set(thinkingEffort, forKey: "thinkingEffort")
+        }
+    }
+    
+    @Published var thinkingEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(thinkingEnabled, forKey: "thinkingEnabled")
+        }
+    }
+    
     @Published var mcpEnabled: Bool {
         didSet {
             UserDefaults.standard.set(mcpEnabled, forKey: "mcpEnabled")
@@ -66,6 +78,9 @@ class SettingsManager: ObservableObject {
         if UserDefaults.standard.string(forKey: "mcpAccessToken") == nil {
             UserDefaults.standard.set("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwZjA1M2JjZWRjNzk0NTlmOGZjMTQ3ZWYwZDVhZWM4MCIsImlhdCI6MTc2MTQ5NDQwNiwiZXhwIjoyMDc2ODU0NDA2fQ.PSwfpbey4BXe2TmScH5PxVMhgOVsjVqU8sdx5twQjZU", forKey: "mcpAccessToken")
         }
+        
+        self.thinkingEffort = UserDefaults.standard.string(forKey: "thinkingEffort") ?? "medium"
+        self.thinkingEnabled = UserDefaults.standard.bool(forKey: "thinkingEnabled")
         
         // Migrate old model names to new format
         if let savedModel = UserDefaults.standard.string(forKey: "selectedModel") {

@@ -23,6 +23,16 @@ struct SettingsView: View {
                     Text("openai/gpt-oss-120b").tag("openai/gpt-oss-120b")
                     Text("openai/gpt-oss-20b").tag("openai/gpt-oss-20b")
                 }
+                
+                Toggle("Enable Thinking Mode", isOn: $settings.thinkingEnabled)
+                
+                if settings.thinkingEnabled {
+                    Picker("Thinking Effort", selection: $settings.thinkingEffort) {
+                        Text("Low").tag("low")
+                        Text("Medium").tag("medium")
+                        Text("High").tag("high")
+                    }
+                }
             }
             
             Section(header: Text("MCP Server Configuration")) {
