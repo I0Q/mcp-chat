@@ -12,7 +12,7 @@ class APIService {
     
     private init() {}
     
-    func sendMessage(message: String, chatHistory: [ChatMessage]) async throws -> String {
+    func sendMessage(message: String, chatHistory: [ChatMessage], onThinking: ((String?) -> Void)? = nil, onToolCall: ((String?) -> Void)? = nil) async throws -> String {
         let settings = SettingsManager.shared
         let urlString = "\(settings.serverURL)/v1/chat/completions"
         
@@ -56,6 +56,11 @@ class APIService {
             }
         }
         
+        // Show initial thinking message
+        await MainActor.run {
+            onThinking?("Processing your message...")
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -76,8 +81,19 @@ class APIService {
         
         // Check if the model wants to use a tool
         if let toolCall = responseData.choices.first?.message.toolCalls?.first {
+            // Show tool call in UI
+            await MainActor.run {
+                onToolCall?(toolCall.function.name)
+                onThinking?("Executing tool: \(toolCall.function.name)...")
+            }
+            
             // Execute the tool call
             let toolResult = try await executeToolCall(toolCall)
+            
+            // Clear thinking message
+            await MainActor.run {
+                onThinking?(nil)
+            }
             
             // Add assistant's tool call and tool result to messages
             let toolCallDict: [String: Any] = [

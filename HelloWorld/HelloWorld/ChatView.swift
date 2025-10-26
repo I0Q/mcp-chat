@@ -12,6 +12,8 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var thinkingMessage: String?
+    @State private var currentToolCall: String?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -46,6 +48,32 @@ struct ChatView: View {
                     .foregroundColor(.red)
                     .padding(.horizontal)
                     .padding(.bottom, 4)
+            }
+            
+            // Thinking indicator
+            if let thinking = thinkingMessage {
+                HStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                    Text(thinking)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+            }
+            
+            // Tool call indicator
+            if let tool = currentToolCall {
+                HStack {
+                    Image(systemName: "wrench")
+                        .foregroundColor(.blue)
+                    Text("Calling: \(tool)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 4)
             }
             
             // Input area - fixed at bottom
@@ -90,19 +118,38 @@ struct ChatView: View {
         inputText = ""
         isLoading = true
         errorMessage = nil
+        thinkingMessage = "Thinking..."
+        currentToolCall = nil
         
         Task {
             do {
-                let response = try await APIService.shared.sendMessage(message: userMessage, chatHistory: messages)
+                let response = try await APIService.shared.sendMessage(
+                    message: userMessage,
+                    chatHistory: messages,
+                    onThinking: { thinkingText in
+                        Task { @MainActor in
+                            thinkingMessage = thinkingText
+                        }
+                    },
+                    onToolCall: { toolName in
+                        Task { @MainActor in
+                            currentToolCall = toolName
+                        }
+                    }
+                )
                 let assistantMessage = ChatMessage(role: "assistant", content: response)
                 await MainActor.run {
                     messages.append(assistantMessage)
                     isLoading = false
+                    thinkingMessage = nil
+                    currentToolCall = nil
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = "Error: \(error.localizedDescription)"
                     isLoading = false
+                    thinkingMessage = nil
+                    currentToolCall = nil
                 }
             }
         }
