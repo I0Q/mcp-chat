@@ -30,6 +30,8 @@ class APIService {
             "messages": messages
         ]
         
+        // Note: Streaming disabled for now - will show thinking tokens from final response
+        
         // Add thinking mode if enabled
         if settings.thinkingEnabled {
             let modeMap: [String: String] = [
@@ -82,7 +84,6 @@ class APIService {
         // Extract and display thinking tokens if present
         if let thinking = responseData.choices.first?.message.thinking {
             await MainActor.run {
-                onThinking?("Thinking...")
                 onThinkingTokens?(thinking)
             }
         }
@@ -175,6 +176,14 @@ class APIService {
                 }
                 
                 let thirdResponseData = try decoder.decode(ChatCompletionResponse.self, from: thirdData)
+                
+                // Extract thinking from final response
+                if let thinking = thirdResponseData.choices.first?.message.thinking {
+                    await MainActor.run {
+                        onThinkingTokens?(thinking)
+                    }
+                }
+                
                 return thirdResponseData.choices.first?.message.content ?? ""
             }
             
@@ -217,17 +226,17 @@ struct ChatCompletionResponse: Codable {
         let message: Message
     }
     
-        struct Message: Codable {
-            let content: String?
-            let toolCalls: [ToolCall]?
-            let thinking: String?
-            
-            enum CodingKeys: String, CodingKey {
-                case content
-                case toolCalls = "tool_calls"
-                case thinking
-            }
+    struct Message: Codable {
+        let content: String?
+        let toolCalls: [ToolCall]?
+        let thinking: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case content
+            case toolCalls = "tool_calls"
+            case thinking
         }
+    }
     
     struct ToolCall: Codable {
         let id: String
@@ -238,6 +247,19 @@ struct ChatCompletionResponse: Codable {
             let name: String
             let arguments: String
         }
+    }
+}
+
+struct StreamResponse: Codable {
+    let choices: [StreamChoice]
+    
+    struct StreamChoice: Codable {
+        let delta: StreamDelta?
+    }
+    
+    struct StreamDelta: Codable {
+        let content: String?
+        let thinking: String?
     }
 }
 
