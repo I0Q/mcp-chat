@@ -70,9 +70,8 @@ class APIService {
             let toolResult = try await executeToolCall(toolCall)
             
             // Add assistant's tool call and tool result to messages
-            messages.append([
+            var assistantMessage: [String: Any] = [
                 "role": "assistant",
-                "content": nil,
                 "tool_calls": [[
                     "id": toolCall.id,
                     "type": "function",
@@ -81,14 +80,16 @@ class APIService {
                         "arguments": toolCall.function.arguments
                     ]
                 ]]
-            ])
+            ]
+            messages.append(assistantMessage)
             
-            messages.append([
+            var toolMessage: [String: Any] = [
                 "role": "tool",
                 "name": toolCall.function.name,
                 "content": toolResult,
                 "tool_call_id": toolCall.id
-            ])
+            ]
+            messages.append(toolMessage)
             
             // Make a second request with tool result
             requestBody["messages"] = messages
