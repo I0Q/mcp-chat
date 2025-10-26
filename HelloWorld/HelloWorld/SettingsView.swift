@@ -50,7 +50,8 @@ struct SettingsView: View {
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
-                    TextField("Proxy URL (optional)", text: $settings.mcpProxyURL)
+                    TextField("mcp-proxy URL", text: $settings.mcpProxyURL)
+                        .help("URL of mcp-proxy running on LLM server")
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                         .keyboardType(.URL)
