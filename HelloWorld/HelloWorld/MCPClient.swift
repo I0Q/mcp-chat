@@ -88,57 +88,13 @@ class MCPClient {
         throw MCPError.invalidResponse
     }
     
-    // Call a tool on the MCP server
+    // Call a tool - MCP uses SSE which doesn't support direct POST for tool calls
+    // Instead, we'll return an error so MCPService falls back to direct API calls
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        let requestID = UUID().uuidString
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "id": requestID,
-            "params": [
-                "name": toolName,
-                "arguments": arguments
-            ]
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        print("🔧 Calling MCP tool: \(toolName) with args: \(arguments)")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ Tool call error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let result = json["result"] as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        // Extract content from result
-        if let content = result["content"] as? String {
-            return content
-        } else if let content = result["text"] as? String {
-            return content
-        }
-        
-        return String(data: data, encoding: .utf8) ?? "Success"
+        // MCP SSE endpoint doesn't support synchronous tool calls
+        // We need to fall back to direct Home Assistant API
+        print("⚠️ MCP SSE endpoint doesn't support direct tool calls, will use direct API")
+        throw MCPError.httpError(405) // Method Not Allowed to trigger fallback
     }
     
     enum MCPError: LocalizedError {
