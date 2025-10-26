@@ -23,14 +23,7 @@ class MCPService {
         return "req-\(requestId)"
     }
     
-    // The Home Assistant MCP integration works through mcp-proxy
-    // For now, we'll use default tools since implementing full SSE bidirectional protocol
-    // requires complex state management. The tools are actually discovered through mcp-proxy
-    // which acts as a bridge between stdio clients and the SSE endpoint.
-    
-    // In production, you would either:
-    // 1. Use mcp-proxy as an intermediary (as LM Studio does)
-    // 2. Implement full MCP protocol over SSE with proper JSON-RPC messaging
+    // Connect to MCP SSE endpoint and fetch tools using MCP protocol
     func connectAndFetchTools() async throws -> [MCPTool] {
         if !cachedTools.isEmpty {
             return cachedTools
@@ -45,10 +38,66 @@ class MCPService {
             return getDefaultTools()
         }
         
-        print("🔗 Would connect to MCP server at \(settings.mcpSSEURL)")
-        print("⚠️ Using default tools - full SSE protocol implementation requires mcp-proxy")
-        print("💡 Tip: The current approach directly calls Home Assistant API, which works for tool execution")
+        print("🔗 Connecting to MCP server at \(settings.mcpSSEURL)")
         
+        // Create SSE request
+        var request = URLRequest(url: sseURL)
+        request.httpMethod = "POST" // MCP SSE uses POST with request body
+        request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        
+        // Send MCP tools/list request via HTTP (not SSE yet, simplified approach)
+        let listToolsRequest: [String: Any] = [
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "id": nextRequestId(),
+            "params": [:]
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: listToolsRequest)
+        } catch {
+            print("⚠️ Could not encode request, using defaults")
+            return getDefaultTools()
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("⚠️ Invalid response, using defaults")
+            return getDefaultTools()
+        }
+        
+        print("📡 Response Status: \(httpResponse.statusCode)")
+        
+        if (200...299).contains(httpResponse.statusCode) {
+            // Try to parse the response
+            do {
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                print("📦 Response: \(json ?? [:])")
+                
+                // Parse MCP response format
+                if let result = json?["result"] as? [String: Any],
+                   let tools = result["tools"] as? [[String: Any]] {
+                    let parsedTools = tools.compactMap { toolDict -> MCPTool? in
+                        guard let name = toolDict["name"] as? String else { return nil }
+                        let description = toolDict["description"] as? String
+                        return MCPTool(name: name, description: description)
+                    }
+                    
+                    if !parsedTools.isEmpty {
+                        print("✅ Fetched \(parsedTools.count) tools from MCP server")
+                        cachedTools = parsedTools
+                        return parsedTools
+                    }
+                }
+            } catch {
+                print("⚠️ Could not parse response: \(error)")
+            }
+        }
+        
+        print("⚠️ Using default tools")
         return getDefaultTools()
     }
     
