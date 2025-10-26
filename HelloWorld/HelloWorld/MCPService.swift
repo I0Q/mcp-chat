@@ -54,9 +54,11 @@ class MCPService {
             // Request body should only contain service data like entity_id
             var serviceData: [String: Any] = [:]
             
-            // Extract entity_id if present
+            // Extract entity_id if present (handle both String and Array)
             if let entityId = arguments["entity_id"] as? String {
                 serviceData["entity_id"] = entityId
+            } else if let entityIdArray = arguments["entity_id"] as? [Any], let firstEntity = entityIdArray.first as? String {
+                serviceData["entity_id"] = firstEntity
             }
             
             // Extract any service_data from arguments
