@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+*.xcuserdatad
+*.xcworkspace/xcuserdata
+*.xcuserstate
+
+# SwiftPM
+.swiftpm/
+
+# Build artifacts
+build/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata
+!*.xcworkspace
+!*.xcworkspace/*
+!.swift-version
+!*.xcode
