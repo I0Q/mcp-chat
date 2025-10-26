@@ -2,7 +2,7 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  MCP client that connects to remote MCP servers via SSE
+//  MCP client with SSE (Server-Sent Events) streaming support
 //
 
 import Foundation
@@ -10,153 +10,102 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
+    private var sseTask: URLSessionDataTask?
+    private var eventListeners: [String: (Data) -> Void] = [:]
+    
     private init() {}
     
-    // Fetch tools from MCP server using proper MCP protocol
-    // For remote SSE servers, we need to use the SSE transport properly
+    // Fetch tools from MCP server via SSE
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        print("🔗 Connecting to MCP server: \(sseURL)")
-        
-        // The SSE endpoint is for bidirectional communication
-        // We need to send a POST request with JSON-RPC 2.0 message
-        let requestId = UUID().uuidString
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": requestId,
-            "params": [:]
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            throw MCPError.invalidURL
-        }
-        
-        print("📤 Sending tools/list request: \(requestBody)")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        // If we get 405, the SSE endpoint doesn't accept POST
-        // This means we need mcp-proxy for proper bidirectional communication
-        if httpResponse.statusCode == 405 {
-            print("⚠️ SSE endpoint doesn't accept POST requests")
-            print("ℹ️ This server requires SSE streaming transport")
-            print("💡 For full MCP support, use mcp-proxy or implement SSE streaming client")
-            return []
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse JSON-RPC 2.0 response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📦 Response: \(json)")
-        
-        // Parse tools
-        if let result = json["result"] as? [String: Any],
-           let tools = result["tools"] as? [[String: Any]] {
-            
-            let parsedTools = tools.compactMap { toolDict -> MCPTool? in
-                guard let name = toolDict["name"] as? String else { return nil }
-                let description = toolDict["description"] as? String
-                return MCPTool(name: name, description: description)
-            }
-            
-            print("✅ Fetched \(parsedTools.count) tools from MCP server")
-            return parsedTools
-        }
-        
+        // For now, return empty since SSE implementation needs persistent connection
+        // This will be implemented with proper SSE streaming
+        print("⚠️ SSE streaming implementation in progress")
+        print("ℹ️ SSE requires persistent GET connection with event parsing")
         return []
     }
     
-    // Call a tool using MCP protocol
+    // Call a tool via SSE streaming
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        print("🔧 Calling MCP tool: \(toolName) with args: \(arguments)")
-        
-        let requestId = UUID().uuidString
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "id": requestId,
-            "params": [
-                "name": toolName,
-                "arguments": arguments
-            ]
-        ]
-        
+        print("⚠️ SSE tool execution not yet implemented")
+        print("ℹ️ Need to implement:")
+        print("   1. Persistent SSE connection")
+        print("   2. JSON-RPC message sending")
+        print("   3. Event stream parsing")
+        return "SSE streaming not yet implemented"
+    }
+    
+    // Start SSE connection (basic framework)
+    private func startSSEConnection(url: URL, accessToken: String) {
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 3600 // Long timeout for streaming
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            throw MCPError.invalidURL
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        if httpResponse.statusCode == 405 {
-            print("⚠️ SSE endpoint requires streaming transport")
-            return "Tool execution requires SSE streaming implementation"
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let result = json["result"] as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        // Extract content
-        if let content = result["content"] as? [[String: Any]] {
-            let textItems = content.compactMap { item -> String? in
-                if let type = item["type"] as? String, type == "text",
-                   let text = item["text"] as? String {
-                    return text
-                }
-                return nil
+        // Create URLSessionDataTask for streaming
+        let session = URLSession.shared
+        sseTask = session.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                print("❌ SSE connection error: \(error)")
+                return
             }
-            return textItems.joined(separator: "\n")
+            
+            guard let data = data else { return }
+            
+            // Parse SSE format
+            self?.parseSSEMessage(data)
         }
         
-        return "Success"
+        sseTask?.resume()
+    }
+    
+    // Parse SSE message
+    private func parseSSEMessage(_ data: Data) {
+        guard let text = String(data: data, encoding: .utf8) else { return }
+        
+        // SSE format: "event: name\n" or "data: {...}\n" or "data: {...}\n\n"
+        let lines = text.components(separatedBy: "\n")
+        var eventName: String?
+        var eventData: String?
+        
+        for line in lines {
+            if line.hasPrefix("event: ") {
+                eventName = String(line.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+            } else if line.hasPrefix("data: ") {
+                eventData = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            } else if line.isEmpty {
+                // End of message
+                if let name = eventName, let data = eventData {
+                    handleSSEEvent(name: name, data: data)
+                }
+                eventName = nil
+                eventData = nil
+            }
+        }
+    }
+    
+    // Handle SSE event
+    private func handleSSEEvent(name: String, data: String) {
+        print("📡 SSE Event: \(name)")
+        
+        if let listener = eventListeners[name] {
+            guard let jsonData = data.data(using: .utf8) else { return }
+            listener(jsonData)
+        }
+    }
+    
+    // Send message through SSE (placeholder)
+    private func sendSSEMessage(_ message: [String: Any]) async throws {
+        print("⚠️ Sending messages through SSE not yet implemented")
+        // This requires a way to send data through the SSE connection
+        // Most SSE implementations are one-way (server to client)
+        // Would need WebSocket or separate POST endpoint
+    }
+    
+    // Cancel SSE connection
+    func cancelConnection() {
+        sseTask?.cancel()
+        sseTask = nil
     }
     
     enum MCPError: LocalizedError {
