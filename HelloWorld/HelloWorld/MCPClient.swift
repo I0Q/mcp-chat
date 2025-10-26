@@ -12,33 +12,35 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server using JSON-RPC 2.0 over SSE
+    // Fetch tools from MCP server using SSE
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        // MCP protocol: send tools/list request via POST to SSE endpoint
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": UUID().uuidString,
-            "params": [:]
+        // For SSE, we need to send the request as part of the connection
+        // Append the request as query parameter for the initial connection
+        let requestId = UUID().uuidString
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "method", value: "tools/list"),
+            URLQueryItem(name: "id", value: requestId)
         ]
         
+        guard let url = components?.url else {
+            throw MCPError.invalidURL
+        }
+        
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "GET"
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         
         // Add auth header if token provided
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
         print("🔗 Fetching tools from MCP server at: \(sseURL)")
-        print("📤 Request: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -54,12 +56,14 @@ class MCPClient {
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON-RPC response
+        // Parse SSE response
+        let responseString = String(data: data, encoding: .utf8) ?? ""
+        print("📦 Response: \(responseString)")
+        
+        // Parse JSON-RPC response from SSE
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw MCPError.invalidResponse
         }
-        
-        print("📦 Response: \(json)")
         
         // Parse tools from JSON-RPC result
         var tools: [MCPTool] = []
@@ -91,35 +95,41 @@ class MCPClient {
         }
     }
     
-    // Call a tool using JSON-RPC 2.0 over SSE
+    // Call a tool using SSE
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        // MCP protocol: send tools/call request
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "id": UUID().uuidString,
-            "params": [
-                "name": toolName,
-                "arguments": arguments
-            ]
+        // Build query parameters for SSE request
+        let requestId = UUID().uuidString
+        
+        // Serialize arguments to JSON
+        let argumentsJSON = try JSONSerialization.data(withJSONObject: arguments)
+        let argumentsString = String(data: argumentsJSON, encoding: .utf8) ?? "{}"
+        
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "method", value: "tools/call"),
+            URLQueryItem(name: "id", value: requestId),
+            URLQueryItem(name: "name", value: toolName),
+            URLQueryItem(name: "arguments", value: argumentsString)
         ]
         
+        guard let url = components?.url else {
+            throw MCPError.invalidURL
+        }
+        
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "GET"
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         
         // Add auth header if token provided
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        print("🔧 Calling tool: \(toolName) with args: \(arguments)")
+        print("🔧 Calling tool via SSE: \(toolName) with args: \(arguments)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -133,7 +143,7 @@ class MCPClient {
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON-RPC response
+        // Parse SSE response
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw MCPError.invalidResponse
         }
