@@ -66,25 +66,43 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        // Use Home Assistant's conversation API to execute intents/tools
-        let conversationURL = baseURL.appendingPathComponent("/api/conversation/process")
+        // Use Home Assistant's Assist API to execute intents/tools
+        let assistURL = baseURL.appendingPathComponent("/api/assist_pipeline/conversation")
         
-        // Build text command from tool name and arguments
-        let argsString = arguments.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
-        let command = "\(toolName) \(argsString)"
+        // Build natural language command from tool name and arguments
+        // Format: natural language instruction
+        var command = ""
+        if let name = arguments["name"] as? String {
+            // Build command based on tool
+            if toolName == "HassTurnOn" {
+                command = "turn on \(name)"
+            } else if toolName == "HassTurnOff" {
+                command = "turn off \(name)"
+            } else {
+                command = name
+            }
+            command = command.replacingOccurrences(of: "_", with: " ")
+        } else {
+            command = toolName.replacingOccurrences(of: "Hass", with: "").replacingOccurrences(of: "_", with: " ")
+        }
         
         let requestBody: [String: Any] = [
-            "agent_id": "conversation",
+            "conversation_id": UUID().uuidString,
+            "language": "en",
+            "endpoint_id": "default",
+            "pipeline_id": nil as Any,
             "text": command
         ]
         
-        var request = URLRequest(url: conversationURL)
+        var request = URLRequest(url: assistURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
-        print("🔧 Calling tool via conversation API: \(command)")
+        print("🔧 Calling tool via conversation API")
+        print("  Command: \(command)")
+        print("  Request body: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
