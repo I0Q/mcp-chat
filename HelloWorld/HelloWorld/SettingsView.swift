@@ -49,6 +49,11 @@ struct SettingsView: View {
                     SecureField("Access Token", text: $settings.mcpAccessToken)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
+                    
+                    TextField("Proxy URL (optional)", text: $settings.mcpProxyURL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.URL)
                 }
             }
             

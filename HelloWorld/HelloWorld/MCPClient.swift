@@ -14,11 +14,15 @@ class MCPClient {
     
     // Fetch tools from MCP server via mcp-proxy
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        print("🔗 Connecting via mcp-proxy to fetch tools")
+        let settings = SettingsManager.shared
         
-        // mcp-proxy runs locally and bridges stdio to SSE
-        // Default proxy location
-        guard let proxyURL = URL(string: "http://localhost:8000/tools/list") else {
+        // Use proxy URL from settings, or default to localhost
+        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://localhost:8000" : settings.mcpProxyURL
+        let proxyURLStringWithPath = "\(proxyURLString)/tools/list"
+        
+        print("🔗 Connecting via mcp-proxy at: \(proxyURLString)")
+        
+        guard let proxyURL = URL(string: proxyURLStringWithPath) else {
             throw MCPError.invalidURL
         }
         
@@ -97,9 +101,14 @@ class MCPClient {
     
     // Call a tool via mcp-proxy
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
+        let settings = SettingsManager.shared
+        
+        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://localhost:8000" : settings.mcpProxyURL
+        let proxyURLStringWithPath = "\(proxyURLString)/tools/call"
+        
         print("🔧 Calling tool via mcp-proxy: \(toolName)")
         
-        guard let proxyURL = URL(string: "http://localhost:8000/tools/call") else {
+        guard let proxyURL = URL(string: proxyURLStringWithPath) else {
             throw MCPError.invalidURL
         }
         
