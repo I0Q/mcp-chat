@@ -32,73 +32,25 @@ class MCPService {
         let settings = SettingsManager.shared
         
         guard settings.mcpEnabled,
-              let sseURL = URL(string: settings.mcpSSEURL),
+              !settings.mcpSSEURL.isEmpty,
               !settings.mcpAccessToken.isEmpty else {
             print("⚠️ MCP not configured, using default tools")
             return getDefaultTools()
         }
         
-        print("🔗 Connecting to MCP server at \(settings.mcpSSEURL)")
-        
-        // Create SSE request
-        var request = URLRequest(url: sseURL)
-        request.httpMethod = "POST" // MCP SSE uses POST with request body
-        request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        
-        // Send MCP tools/list request via HTTP (not SSE yet, simplified approach)
-        let listToolsRequest: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": nextRequestId(),
-            "params": [:]
-        ]
-        
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: listToolsRequest)
+            // Use the new MCPClient to fetch tools
+            let tools = try await MCPClient.shared.fetchTools(
+                sseURL: settings.mcpSSEURL,
+                accessToken: settings.mcpAccessToken
+            )
+            
+            cachedTools = tools
+            return tools
         } catch {
-            print("⚠️ Could not encode request, using defaults")
+            print("⚠️ Could not fetch tools from MCP server: \(error), using defaults")
             return getDefaultTools()
         }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            print("⚠️ Invalid response, using defaults")
-            return getDefaultTools()
-        }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        if (200...299).contains(httpResponse.statusCode) {
-            // Try to parse the response
-            do {
-                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                print("📦 Response: \(json ?? [:])")
-                
-                // Parse MCP response format
-                if let result = json?["result"] as? [String: Any],
-                   let tools = result["tools"] as? [[String: Any]] {
-                    let parsedTools = tools.compactMap { toolDict -> MCPTool? in
-                        guard let name = toolDict["name"] as? String else { return nil }
-                        let description = toolDict["description"] as? String
-                        return MCPTool(name: name, description: description)
-                    }
-                    
-                    if !parsedTools.isEmpty {
-                        print("✅ Fetched \(parsedTools.count) tools from MCP server")
-                        cachedTools = parsedTools
-                        return parsedTools
-                    }
-                }
-            } catch {
-                print("⚠️ Could not parse response: \(error)")
-            }
-        }
-        
-        print("⚠️ Using default tools")
-        return getDefaultTools()
     }
     
     // Fetch tools - try MCP server first, fallback to defaults
@@ -187,19 +139,26 @@ class MCPService {
             throw MCPError.notConfigured
         }
         
-        // Use Home Assistant's API directly instead of MCP SSE protocol
-        // This is a simplified approach - in production you'd use proper SSE streaming
+        // Try to use MCP protocol first via MCPClient
+        // If that fails, fall back to direct Home Assistant API calls
+        if let mcpResult = try? await MCPClient.shared.callTool(
+            toolName: name,
+            arguments: arguments,
+            sseURL: settings.mcpSSEURL,
+            accessToken: settings.mcpAccessToken
+        ) {
+            return mcpResult
+        }
+        
+        // Fallback to direct Home Assistant API calls
         let apiURL: URL
         let method: String
         var requestBody: [String: Any] = [:]
         
-        // Home Assistant MCP tools - these are Assist API conversation intents
-        // We need to map the tool to the appropriate Home Assistant service call
-        method = "POST"
-        
         // Map tool names to Home Assistant services
         let (domain, service) = mapToolToService(name)
         apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
+        method = "POST"
         
         // Build service data from arguments
         var serviceData: [String: Any] = [:]
