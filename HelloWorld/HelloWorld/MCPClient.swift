@@ -48,7 +48,7 @@ class MCPClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
         print("🔗 Fetching tools from MCP server")
-        print("📍 URL: \(sseURL)")
+        print("📍 POST URL: \(url.absoluteString)")
         print("📤 Request: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
