@@ -39,6 +39,8 @@ class MCPClient {
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
+            print("⚠️ Intents API returned \(httpResponse.statusCode)")
+            print("ℹ️ This might mean your Home Assistant doesn't have Assist API configured")
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
