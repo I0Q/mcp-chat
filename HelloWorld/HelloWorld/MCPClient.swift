@@ -14,10 +14,18 @@ class MCPClient {
     
     // Fetch tools from MCP server using JSON-RPC
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        // Use the SSE URL as-is
-        guard let url = URL(string: sseURL) else {
+        // Convert SSE URL to base endpoint (remove /sse, use base path)
+        var baseURL = sseURL
+        if baseURL.hasSuffix("/sse") {
+            baseURL = String(baseURL.dropLast(4)) // Remove /sse
+        }
+        
+        guard let url = URL(string: baseURL) else {
             throw MCPError.invalidURL
         }
+        
+        print("📍 SSE URL: \(sseURL)")
+        print("📍 Base URL: \(baseURL)")
         
         // Send JSON-RPC request in body
         let requestBody: [String: Any] = [
@@ -96,8 +104,13 @@ class MCPClient {
     
     // Call a tool using JSON-RPC
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        // Use the SSE URL as-is
-        guard let url = URL(string: sseURL) else {
+        // Convert SSE URL to base endpoint (remove /sse, use base path)
+        var baseURL = sseURL
+        if baseURL.hasSuffix("/sse") {
+            baseURL = String(baseURL.dropLast(4)) // Remove /sse
+        }
+        
+        guard let url = URL(string: baseURL) else {
             throw MCPError.invalidURL
         }
         
