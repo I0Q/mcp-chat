@@ -21,8 +21,8 @@ class APIService {
         }
         
         // Convert chat history to API format
-        var messages = chatHistory.map { msg in
-            ["role": msg.role, "content": msg.content]
+        var messages: [[String: Any]] = chatHistory.map { msg in
+            ["role": msg.role, "content": msg.content] as [String: Any]
         }
         
         var requestBody: [String: Any] = [
