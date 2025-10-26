@@ -126,7 +126,7 @@ class APIService {
                 ]
             ]
             
-            var assistantMessage: [String: Any] = [
+            let assistantMessage: [String: Any] = [
                 "role": "assistant",
                 "tool_calls": [toolCallDict]
             ]
