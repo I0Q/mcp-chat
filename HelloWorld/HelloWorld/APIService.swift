@@ -12,7 +12,7 @@ class APIService {
     
     private init() {}
     
-    func sendMessage(message: String, chatHistory: [ChatMessage], onThinking: ((String?) -> Void)? = nil, onToolCall: ((String?) -> Void)? = nil) async throws -> String {
+    func sendMessage(message: String, chatHistory: [ChatMessage], onThinking: ((String?) -> Void)? = nil, onToolCall: ((String?) -> Void)? = nil, onThinkingTokens: ((String) -> Void)? = nil) async throws -> String {
         let settings = SettingsManager.shared
         let urlString = "\(settings.serverURL)/v1/chat/completions"
         
@@ -78,6 +78,14 @@ class APIService {
         
         let decoder = JSONDecoder()
         let responseData = try decoder.decode(ChatCompletionResponse.self, from: data)
+        
+        // Extract and display thinking tokens if present
+        if let thinking = responseData.choices.first?.message.thinking {
+            await MainActor.run {
+                onThinking?("Thinking...")
+                onThinkingTokens?(thinking)
+            }
+        }
         
         // Check if the model wants to use a tool
         if let toolCall = responseData.choices.first?.message.toolCalls?.first {
@@ -209,15 +217,17 @@ struct ChatCompletionResponse: Codable {
         let message: Message
     }
     
-    struct Message: Codable {
-        let content: String?
-        let toolCalls: [ToolCall]?
-        
-        enum CodingKeys: String, CodingKey {
-            case content
-            case toolCalls = "tool_calls"
+        struct Message: Codable {
+            let content: String?
+            let toolCalls: [ToolCall]?
+            let thinking: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case content
+                case toolCalls = "tool_calls"
+                case thinking
+            }
         }
-    }
     
     struct ToolCall: Codable {
         let id: String

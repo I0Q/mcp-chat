@@ -14,6 +14,7 @@ struct ChatView: View {
     @State private var errorMessage: String?
     @State private var thinkingMessage: String?
     @State private var currentToolCall: String?
+    @State private var thinkingTokens: String?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -61,6 +62,26 @@ struct ChatView: View {
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 4)
+            }
+            
+            // Thinking tokens display
+            if let tokens = thinkingTokens {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Thinking:")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                    ScrollView {
+                        Text(tokens)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .frame(maxHeight: 120)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
             }
             
             // Tool call indicator
@@ -135,6 +156,11 @@ struct ChatView: View {
                         Task { @MainActor in
                             currentToolCall = toolName
                         }
+                    },
+                    onThinkingTokens: { tokens in
+                        Task { @MainActor in
+                            thinkingTokens = tokens
+                        }
                     }
                 )
                 let assistantMessage = ChatMessage(role: "assistant", content: response)
@@ -143,6 +169,7 @@ struct ChatView: View {
                     isLoading = false
                     thinkingMessage = nil
                     currentToolCall = nil
+                    thinkingTokens = nil
                 }
             } catch {
                 await MainActor.run {
@@ -150,6 +177,7 @@ struct ChatView: View {
                     isLoading = false
                     thinkingMessage = nil
                     currentToolCall = nil
+                    thinkingTokens = nil
                 }
             }
         }
