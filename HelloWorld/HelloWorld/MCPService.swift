@@ -80,8 +80,19 @@ class MCPService {
         request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // Debug logging
+        print("🔧 MCP Tool Call:")
+        print("  Name: \(name)")
+        print("  URL: \(apiURL)")
+        print("  Method: \(method)")
+        print("  Arguments: \(arguments)")
+        print("  Request Body: \(requestBody)")
+        
         if !requestBody.isEmpty {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            if let bodyString = String(data: request.httpBody!, encoding: .utf8) {
+                print("  Request Body (JSON): \(bodyString)")
+            }
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -90,12 +101,17 @@ class MCPService {
             throw MCPError.invalidResponse
         }
         
+        print("📡 Response Status: \(httpResponse.statusCode)")
+        
         guard (200...299).contains(httpResponse.statusCode) else {
             // Include response body in error for debugging
             let errorBody = String(data: data, encoding: .utf8) ?? "No error message"
+            print("❌ Error Response: \(errorBody)")
             let statusCode = httpResponse.statusCode
             throw MCPError.httpErrorWithDetails(statusCode, errorBody)
         }
+        
+        print("✅ Success!")
         
         // Return the response as a string
         if let jsonString = String(data: data, encoding: .utf8) {
