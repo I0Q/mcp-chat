@@ -80,6 +80,7 @@ struct ChatView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(24)
                     .disabled(isLoading)
+                    .onSubmit(sendMessage)
                 
                 Button(action: sendMessage) {
                     if isLoading {
