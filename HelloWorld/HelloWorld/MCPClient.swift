@@ -12,118 +12,20 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server using SSE
+    // Fetch tools from MCP server
+    // Returns empty array if server doesn't expose tools via standard endpoint
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let baseURL = URL(string: sseURL.replacingOccurrences(of: "/mcp_server/sse", with: "")) else {
-            throw MCPError.invalidURL
-        }
-        
-        // For now, use direct API call to get intents as MCP tools
-        // Full SSE implementation requires maintaining persistent connections which is complex
-        let intentsURL = baseURL.appendingPathComponent("/api/assist_pipeline/conversation/intents")
-        
-        var request = URLRequest(url: intentsURL)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        print("🔗 Fetching intents from Home Assistant")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse intents as tools
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let intents = json["intents"] as? [[String: Any]] {
-            let tools = intents.compactMap { intent -> MCPTool? in
-                guard let name = intent["name"] as? String else { return nil }
-                let description = intent["description"] as? String
-                return MCPTool(name: name, description: description)
-            }
-            
-            print("✅ Fetched \(tools.count) tools")
-            return tools
-        }
-        
-        throw MCPError.invalidResponse
+        print("⚠️ Tool discovery not implemented for generic MCP servers")
+        print("ℹ️ Returning empty array - tools will be defined by the LLM's knowledge")
+        return []
     }
     
-    // Call a tool using Home Assistant's conversation API
+    // Call a tool - MCP servers handle tool execution differently
+    // For now, we'll rely on the LLM to know what tools are available
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let baseURL = URL(string: sseURL.replacingOccurrences(of: "/mcp_server/sse", with: "")) else {
-            throw MCPError.invalidURL
-        }
-        
-        // Use conversation API to execute the intent
-        let conversationURL = baseURL.appendingPathComponent("/api/conversation/process")
-        
-        // Build natural language command
-        var command = ""
-        if let name = arguments["name"] as? String {
-            if toolName == "HassTurnOn" {
-                command = "turn on \(name)"
-            } else if toolName == "HassTurnOff" {
-                command = "turn off \(name)"
-            } else if toolName == "HassSetPosition" {
-                if let position = arguments["position"] {
-                    command = "set \(name) to \(position)"
-                } else {
-                    command = "set \(name)"
-                }
-            } else {
-                command = name
-            }
-            command = command.replacingOccurrences(of: "_", with: " ")
-        } else {
-            command = toolName.replacingOccurrences(of: "Hass", with: "").replacingOccurrences(of: "_", with: " ")
-        }
-        
-        let requestBody: [String: Any] = [
-            "text": command
-        ]
-        
-        var request = URLRequest(url: conversationURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        print("🔧 Calling tool: \(command)")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            // Extract speech
-            if let speech = json["speech"] as? [String: Any],
-               let plain = speech["plain"] as? [String: Any],
-               let speechText = plain["speech"] as? String {
-                return speechText
-            }
-            
-            if let message = json["message"] as? String {
-                return message
-            }
-        }
-        
-        return "Success"
+        print("⚠️ Tool execution not implemented for generic MCP servers")
+        print("ℹ️ LLM should handle tool calls via its knowledge of the MCP server")
+        return "Tool execution not supported in generic mode"
     }
     
     enum MCPError: LocalizedError {
