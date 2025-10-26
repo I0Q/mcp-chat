@@ -50,7 +50,9 @@ class MCPService {
                 throw MCPError.invalidArguments
             }
             apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
-            requestBody = arguments["service_data"] as? [String: Any] ?? [:]
+            // Home Assistant expects service data directly as request body
+            // Extract service_data from arguments or use arguments directly
+            requestBody = arguments["service_data"] as? [String: Any] ?? arguments
             
         case "get_states":
             method = "GET"
@@ -89,7 +91,10 @@ class MCPService {
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw MCPError.httpError(httpResponse.statusCode)
+            // Include response body in error for debugging
+            let errorBody = String(data: data, encoding: .utf8) ?? "No error message"
+            let statusCode = httpResponse.statusCode
+            throw MCPError.httpErrorWithDetails(statusCode, errorBody)
         }
         
         // Return the response as a string
@@ -103,6 +108,7 @@ class MCPService {
         case notConfigured
         case invalidResponse
         case httpError(Int)
+        case httpErrorWithDetails(Int, String)
         case invalidArguments
         
         var errorDescription: String? {
@@ -113,6 +119,8 @@ class MCPService {
                 return "Invalid response from MCP server"
             case .httpError(let code):
                 return "HTTP Error: \(code)"
+            case .httpErrorWithDetails(let code, let details):
+                return "HTTP Error \(code): \(details)"
             case .invalidArguments:
                 return "Invalid arguments for tool"
             }
