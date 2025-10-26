@@ -2,7 +2,7 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  MCP client with bidirectional SSE support
+//  MCP client supporting mcp-proxy integration
 //
 
 import Foundation
@@ -10,31 +10,29 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
-    private var pendingRequests: [String: CheckedContinuation<[String: Any], Error>] = [:]
-    
     private init() {}
     
-    // Fetch tools from MCP server via SSE
+    // Fetch tools from MCP server via mcp-proxy
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
+        print("🔗 Connecting via mcp-proxy to fetch tools")
+        
+        // mcp-proxy runs locally and bridges stdio to SSE
+        // Default proxy location
+        guard let proxyURL = URL(string: "http://localhost:8000/tools/list") else {
             throw MCPError.invalidURL
         }
         
-        print("🔗 Fetching tools from MCP server: \(sseURL)")
-        
-        // Send POST request with JSON-RPC 2.0 message
-        let requestId = UUID().uuidString
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": requestId,
-            "params": [:]
-        ]
-        
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: proxyURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody: [String: Any] = [
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "id": UUID().uuidString,
+            "params": [:]
+        ]
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -42,7 +40,7 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        print("📤 Sending tools/list request")
+        print("📤 Sending request to mcp-proxy")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -52,78 +50,73 @@ class MCPClient {
         
         print("📡 Response Status: \(httpResponse.statusCode)")
         
+        if httpResponse.statusCode == 404 || httpResponse.statusCode == 502 {
+            print("⚠️ mcp-proxy not running")
+            print("💡 To use mcp-proxy:")
+            print("   1. Install: uv tool install git+https://github.com/sparfenyuk/mcp-proxy")
+            print("   2. Run: mcp-proxy --sse-url \(sseURL) --access-token \(accessToken)")
+            print("   3. The proxy will be available at http://localhost:8000")
+            return []
+        }
+        
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
             print("❌ Error: \(errorBody)")
-            
-            // 405 means SSE endpoint needs different approach
-            if httpResponse.statusCode == 405 {
-                print("💡 SSE endpoint doesn't accept POST - needs SSE streaming connection")
-            }
-            
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON-RPC response
+        // Parse response
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw MCPError.invalidResponse
         }
         
         print("📦 Response: \(json)")
         
-        // Parse tools
+        // Parse tools from various possible formats
+        var tools: [MCPTool] = []
+        
         if let result = json["result"] as? String, result == "tools",
-           let tools = json["tools"] as? [[String: Any]] {
-            
-            let parsedTools = tools.compactMap { toolDict -> MCPTool? in
-                guard let name = toolDict["name"] as? String else { return nil }
-                let description = toolDict["description"] as? String
-                return MCPTool(name: name, description: description)
-            }
-            
-            print("✅ Fetched \(parsedTools.count) tools")
-            return parsedTools
+           let toolsArray = json["tools"] as? [[String: Any]] {
+            tools = parseTools(toolsArray)
+        } else if let result = json["result"] as? [String: Any],
+                  let toolsArray = result["tools"] as? [[String: Any]] {
+            tools = parseTools(toolsArray)
         }
         
-        // Try alternative response format
-        if let result = json["result"] as? [String: Any],
-           let tools = result["tools"] as? [[String: Any]] {
-            let parsedTools = tools.compactMap { toolDict -> MCPTool? in
-                guard let name = toolDict["name"] as? String else { return nil }
-                let description = toolDict["description"] as? String
-                return MCPTool(name: name, description: description)
-            }
-            
-            print("✅ Fetched \(parsedTools.count) tools")
-            return parsedTools
-        }
-        
-        return []
+        print("✅ Fetched \(tools.count) tools via mcp-proxy")
+        return tools
     }
     
-    // Call a tool via SSE with bidirectional communication
+    private func parseTools(_ toolsArray: [[String: Any]]) -> [MCPTool] {
+        return toolsArray.compactMap { toolDict -> MCPTool? in
+            guard let name = toolDict["name"] as? String else { return nil }
+            let description = toolDict["description"] as? String
+            return MCPTool(name: name, description: description)
+        }
+    }
+    
+    // Call a tool via mcp-proxy
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
+        print("🔧 Calling tool via mcp-proxy: \(toolName)")
+        
+        guard let proxyURL = URL(string: "http://localhost:8000/tools/call") else {
             throw MCPError.invalidURL
         }
         
-        print("🔧 Calling MCP tool: \(toolName)")
+        var request = URLRequest(url: proxyURL)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let requestId = UUID().uuidString
         let requestBody: [String: Any] = [
             "jsonrpc": "2.0",
             "method": "tools/call",
-            "id": requestId,
+            "id": UUID().uuidString,
             "params": [
                 "name": toolName,
                 "arguments": arguments
             ]
         ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
@@ -131,19 +124,15 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        print("📤 Sending tool call request")
-        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
         
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        if httpResponse.statusCode == 405 {
-            print("⚠️ SSE endpoint requires streaming connection")
-            throw MCPError.httpError(405)
+        if httpResponse.statusCode == 404 || httpResponse.statusCode == 502 {
+            print("⚠️ mcp-proxy not running")
+            throw MCPError.notConnected
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
@@ -177,15 +166,18 @@ class MCPClient {
         case invalidURL
         case invalidResponse
         case httpError(Int)
+        case notConnected
         
         var errorDescription: String? {
             switch self {
             case .invalidURL:
                 return "Invalid URL"
             case .invalidResponse:
-                return "Invalid response from MCP server"
+                return "Invalid response from server"
             case .httpError(let code):
                 return "HTTP Error: \(code)"
+            case .notConnected:
+                return "mcp-proxy not running"
             }
         }
     }
