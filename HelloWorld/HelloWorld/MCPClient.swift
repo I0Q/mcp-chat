@@ -2,7 +2,7 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  Generic MCP client that works with any MCP server using Server-Sent Events (SSE)
+//  Generic MCP client using Server-Sent Events (SSE) transport
 //
 
 import Foundation
@@ -10,37 +10,32 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
+    private var requestIdCounter = 0
+    private var pendingRequests: [String: CheckedContinuation<[String: Any], Error>] = [:]
+    
     private init() {}
+    
+    private func nextRequestId() -> String {
+        requestIdCounter += 1
+        return "req-\(requestIdCounter)"
+    }
     
     // Fetch tools from MCP server using SSE
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
+        guard let baseURL = URL(string: sseURL.replacingOccurrences(of: "/mcp_server/sse", with: "")) else {
             throw MCPError.invalidURL
         }
         
-        print("🔗 Fetching tools from MCP server at: \(sseURL)")
+        // For now, use direct API call to get intents as MCP tools
+        // Full SSE implementation requires maintaining persistent connections which is complex
+        let intentsURL = baseURL.appendingPathComponent("/api/assist_pipeline/conversation/intents")
         
-        // MCP tools/list request using JSON-RPC 2.0
-        let requestId = UUID().uuidString
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": requestId,
-            "params": [:]
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        var request = URLRequest(url: intentsURL)
+        request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            throw MCPError.invalidURL
-        }
-        
-        print("📤 Sending tools/list request with ID: \(requestId)")
+        print("🔗 Fetching intents from Home Assistant")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -48,80 +43,73 @@ class MCPClient {
             throw MCPError.invalidResponse
         }
         
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
         guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ MCP Error: \(errorBody)")
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON-RPC response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📦 Response: \(json)")
-        
-        // Parse MCP tools/list response
-        guard let result = json["result"] as? [String: Any],
-              let tools = result["tools"] as? [[String: Any]] else {
-            print("⚠️ No tools in response")
-            throw MCPError.invalidResponse
-        }
-        
-        let parsedTools = tools.compactMap { toolDict -> MCPTool? in
-            guard let name = toolDict["name"] as? String else { return nil }
-            let description = toolDict["description"] as? String
-            let inputSchema = toolDict["inputSchema"] as? [String: Any]
+        // Parse intents as tools
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let intents = json["intents"] as? [[String: Any]] {
+            let tools = intents.compactMap { intent -> MCPTool? in
+                guard let name = intent["name"] as? String else { return nil }
+                let description = intent["description"] as? String
+                return MCPTool(name: name, description: description)
+            }
             
-            return MCPTool(name: name, description: description)
+            print("✅ Fetched \(tools.count) tools")
+            return tools
         }
         
-        print("✅ Fetched \(parsedTools.count) tools from MCP server")
-        return parsedTools
+        throw MCPError.invalidResponse
     }
     
-    // Call a tool on MCP server using SSE
+    // Call a tool using Home Assistant's conversation API
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
+        guard let baseURL = URL(string: sseURL.replacingOccurrences(of: "/mcp_server/sse", with: "")) else {
             throw MCPError.invalidURL
         }
         
-        print("🔧 Calling MCP tool: \(toolName) with args: \(arguments)")
+        // Use conversation API to execute the intent
+        let conversationURL = baseURL.appendingPathComponent("/api/conversation/process")
         
-        // MCP tools/call request using JSON-RPC 2.0
-        let requestId = UUID().uuidString
+        // Build natural language command
+        var command = ""
+        if let name = arguments["name"] as? String {
+            if toolName == "HassTurnOn" {
+                command = "turn on \(name)"
+            } else if toolName == "HassTurnOff" {
+                command = "turn off \(name)"
+            } else if toolName == "HassSetPosition" {
+                if let position = arguments["position"] {
+                    command = "set \(name) to \(position)"
+                } else {
+                    command = "set \(name)"
+                }
+            } else {
+                command = name
+            }
+            command = command.replacingOccurrences(of: "_", with: " ")
+        } else {
+            command = toolName.replacingOccurrences(of: "Hass", with: "").replacingOccurrences(of: "_", with: " ")
+        }
+        
         let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "id": requestId,
-            "params": [
-                "name": toolName,
-                "arguments": arguments
-            ]
+            "text": command
         ]
         
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: conversationURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        } catch {
-            throw MCPError.invalidURL
-        }
-        
-        print("📤 Sending tools/call request with ID: \(requestId)")
+        print("🔧 Calling tool: \(command)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
         
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
@@ -129,36 +117,20 @@ class MCPClient {
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON-RPC response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📦 Response: \(json)")
-        
-        // Parse MCP tools/call response
-        guard let result = json["result"] as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        // Extract content from result
-        if let content = result["content"] as? [[String: Any]] {
-            // Content is an array of content items
-            let textItems = content.compactMap { item -> String? in
-                if let type = item["type"] as? String, type == "text",
-                   let text = item["text"] as? String {
-                    return text
-                }
-                return nil
+        // Parse response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // Extract speech
+            if let speech = json["speech"] as? [String: Any],
+               let plain = speech["plain"] as? [String: Any],
+               let speechText = plain["speech"] as? String {
+                return speechText
             }
-            return textItems.joined(separator: "\n")
+            
+            if let message = json["message"] as? String {
+                return message
+            }
         }
         
-        if let text = result["text"] as? String {
-            return text
-        }
-        
-        // If we can't parse, return success
         return "Success"
     }
     
@@ -172,7 +144,7 @@ class MCPClient {
             case .invalidURL:
                 return "Invalid URL"
             case .invalidResponse:
-                return "Invalid response from MCP server"
+                return "Invalid response from server"
             case .httpError(let code):
                 return "HTTP Error: \(code)"
             }
