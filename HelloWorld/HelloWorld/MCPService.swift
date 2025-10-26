@@ -96,34 +96,6 @@ class MCPService {
         ]
     }
     
-    // Map Home Assistant MCP tool names to actual services
-    private func mapToolToService(_ toolName: String) -> (domain: String, service: String) {
-        switch toolName {
-        case "HassTurnOn":
-            return ("homeassistant", "turn_on")
-        case "HassTurnOff":
-            return ("homeassistant", "turn_off")
-        case "HassSetCoverPosition":
-            return ("cover", "set_cover_position")
-        case "HassSetClimateTemperature":
-            return ("climate", "set_temperature")
-        case "HassGetCameraSnapshot":
-            return ("camera", "snapshot")
-        case "HassPlayMedia":
-            return ("media_player", "play_media")
-        case "HassStartTimer":
-            return ("timer", "start")
-        case "HassPauseTimer":
-            return ("timer", "pause")
-        case "HassRestartTimer":
-            return ("timer", "restart")
-        case "HassCancelTimer":
-            return ("timer", "cancel")
-        default:
-            return ("homeassistant", "turn_on")
-        }
-    }
-    
     // Get available tools (try to fetch from server, fallback to defaults)
     func getAvailableTools() -> [MCPTool] {
         // Return default tools for now - will be fetched when MCP is enabled
@@ -139,87 +111,13 @@ class MCPService {
             throw MCPError.notConfigured
         }
         
-        // Try to use MCP protocol first via MCPClient
-        // If that fails, fall back to direct Home Assistant API calls
-        if let mcpResult = try? await MCPClient.shared.callTool(
+        // Use MCP Client to call tools via conversation API
+        return try await MCPClient.shared.callTool(
             toolName: name,
             arguments: arguments,
             sseURL: settings.mcpSSEURL,
             accessToken: settings.mcpAccessToken
-        ) {
-            return mcpResult
-        }
-        
-        // Fallback to direct Home Assistant API calls
-        let apiURL: URL
-        let method: String
-        var requestBody: [String: Any] = [:]
-        
-        // Map tool names to Home Assistant services
-        let (domain, service) = mapToolToService(name)
-        apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
-        method = "POST"
-        
-        // Build service data from arguments
-        var serviceData: [String: Any] = [:]
-        
-        // Add all arguments as service data
-        for (key, value) in arguments {
-            if let strValue = value as? String {
-                serviceData[key] = strValue
-            } else if let arrayValue = value as? [Any], let firstItem = arrayValue.first as? String {
-                // Handle arrays - take first element
-                serviceData[key] = firstItem
-            } else {
-                serviceData[key] = value
-            }
-        }
-        
-        requestBody = serviceData
-        
-        var request = URLRequest(url: apiURL)
-        request.httpMethod = method
-        request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Debug logging
-        print("🔧 MCP Tool Call:")
-        print("  Name: \(name)")
-        print("  URL: \(apiURL)")
-        print("  Method: \(method)")
-        print("  Arguments: \(arguments)")
-        print("  Request Body: \(requestBody)")
-        
-        if !requestBody.isEmpty {
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-            if let bodyString = String(data: request.httpBody!, encoding: .utf8) {
-                print("  Request Body (JSON): \(bodyString)")
-            }
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            // Include response body in error for debugging
-            let errorBody = String(data: data, encoding: .utf8) ?? "No error message"
-            print("❌ Error Response: \(errorBody)")
-            let statusCode = httpResponse.statusCode
-            throw MCPError.httpErrorWithDetails(statusCode, errorBody)
-        }
-        
-        print("✅ Success!")
-        
-        // Return the response as a string
-        if let jsonString = String(data: data, encoding: .utf8) {
-            return jsonString
-        }
-        return "Success"
+        )
     }
     
     enum MCPError: LocalizedError {
