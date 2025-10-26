@@ -50,9 +50,28 @@ class MCPService {
                 throw MCPError.invalidArguments
             }
             apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
-            // Home Assistant expects service data directly as request body
-            // Extract service_data from arguments or use arguments directly
-            requestBody = arguments["service_data"] as? [String: Any] ?? arguments
+            // Home Assistant API: domain and service are in the URL, NOT in the body
+            // Request body should only contain service data like entity_id
+            var serviceData: [String: Any] = [:]
+            
+            // Extract entity_id if present
+            if let entityId = arguments["entity_id"] as? String {
+                serviceData["entity_id"] = entityId
+            }
+            
+            // Extract any service_data from arguments
+            if let extraData = arguments["service_data"] as? [String: Any] {
+                serviceData.merge(extraData) { (_, new) in new }
+            }
+            
+            // Extract other fields that might be service data
+            for (key, value) in arguments {
+                if key != "domain" && key != "service" && key != "entity_id" && key != "service_data" {
+                    serviceData[key] = value
+                }
+            }
+            
+            requestBody = serviceData
             
         case "get_states":
             method = "GET"
