@@ -16,17 +16,24 @@ class MCPClient {
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         let settings = SettingsManager.shared
         
-        // Connect to mcp-proxy on the LLM server
-        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://192.168.1.232:8000" : settings.mcpProxyURL
-        let proxyURLStringWithPath = "\(proxyURLString)/tools/list"
+        // Connect to mcp-proxy at the configured URL
+        // If no proxy URL is set, return empty tools (user needs to configure)
+        let proxyURL = settings.mcpProxyURL.isEmpty ? "" : settings.mcpProxyURL
         
-        print("🔗 Fetching tools from mcp-proxy at: \(proxyURLString)")
+        guard !proxyURL.isEmpty else {
+            print("⚠️ No mcp-proxy URL configured")
+            print("💡 Set mcp-proxy URL in settings to use MCP tools")
+            return []
+        }
+        let proxyURLStringWithPath = "\(proxyURL)/tools/list"
         
-        guard let proxyURL = URL(string: proxyURLStringWithPath) else {
+        print("🔗 Fetching tools from mcp-proxy at: \(proxyURL)")
+        
+        guard let url = URL(string: proxyURLStringWithPath) else {
             throw MCPError.invalidURL
         }
         
-        var request = URLRequest(url: proxyURL)
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -98,16 +105,22 @@ class MCPClient {
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
         let settings = SettingsManager.shared
         
-        let proxyURLString = settings.mcpProxyURL.isEmpty ? "http://192.168.1.232:8000" : settings.mcpProxyURL
-        let proxyURLStringWithPath = "\(proxyURLString)/tools/call"
+        let proxyURL = settings.mcpProxyURL.isEmpty ? "" : settings.mcpProxyURL
+        
+        guard !proxyURL.isEmpty else {
+            print("⚠️ No mcp-proxy URL configured")
+            throw MCPError.notConfigured
+        }
+        
+        let proxyURLStringWithPath = "\(proxyURL)/tools/call"
         
         print("🔧 Calling tool via mcp-proxy: \(toolName) with args: \(arguments)")
         
-        guard let proxyURL = URL(string: proxyURLStringWithPath) else {
+        guard let url = URL(string: proxyURLStringWithPath) else {
             throw MCPError.invalidURL
         }
         
-        var request = URLRequest(url: proxyURL)
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -178,6 +191,7 @@ class MCPClient {
         case invalidResponse
         case httpError(Int)
         case notConnected
+        case notConfigured
         
         var errorDescription: String? {
             switch self {
@@ -189,6 +203,8 @@ class MCPClient {
                 return "HTTP Error: \(code)"
             case .notConnected:
                 return "Not connected to mcp-proxy"
+            case .notConfigured:
+                return "mcp-proxy URL not configured"
             }
         }
     }
