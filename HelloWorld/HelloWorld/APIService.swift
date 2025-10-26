@@ -32,7 +32,7 @@ class APIService {
         
         // If MCP is enabled, add tools to the request
         if settings.mcpEnabled {
-            let tools = try await MCPService.shared.listTools()
+            let tools = MCPService.shared.getAvailableTools()
             if !tools.isEmpty {
                 requestBody["tools"] = tools.map { tool in
                     [
@@ -41,7 +41,7 @@ class APIService {
                             "name": tool.name,
                             "description": tool.description ?? ""
                         ]
-                    ]
+                    ] as [String: Any]
                 }
             }
         }

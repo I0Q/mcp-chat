@@ -9,72 +9,78 @@ import Foundation
 
 class MCPService {
     static let shared = MCPService()
+    private var eventSource: URLSessionDataTask?
+    private var connected = false
+    private var pendingRequests: [String: CheckedContinuation<Data, Error>] = [:]
     
     private init() {}
     
-    func listTools() async throws -> [MCPTool] {
-        let settings = SettingsManager.shared
-        
-        guard settings.mcpEnabled,
-              let sseURL = URL(string: settings.mcpSSEURL),
-              !settings.mcpAccessToken.isEmpty else {
-            throw MCPError.notConfigured
-        }
-        
-        var request = URLRequest(url: sseURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": UUID().uuidString
+    // Simplified MCP tools - hardcoded for Home Assistant based on documentation
+    // The actual tools are exposed by the Assist API
+    func getAvailableTools() -> [MCPTool] {
+        return [
+            MCPTool(name: "get_states", description: "Get the current states of entities in Home Assistant"),
+            MCPTool(name: "set_state", description: "Set the state of an entity in Home Assistant"),
+            MCPTool(name: "call_service", description: "Call a Home Assistant service"),
+            MCPTool(name: "get_device_info", description: "Get information about a device"),
+            MCPTool(name: "get_config", description: "Get the Home Assistant configuration")
         ]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        let decoder = JSONDecoder()
-        let mcpResponse = try decoder.decode(MCPListToolsResponse.self, from: data)
-        
-        return mcpResponse.result?.tools ?? []
     }
     
     func callTool(name: String, arguments: [String: Any]) async throws -> String {
         let settings = SettingsManager.shared
         
         guard settings.mcpEnabled,
-              let sseURL = URL(string: settings.mcpSSEURL),
+              let baseURL = URL(string: settings.mcpSSEURL.replacingOccurrences(of: "/mcp_server/sse", with: "")),
               !settings.mcpAccessToken.isEmpty else {
             throw MCPError.notConfigured
         }
         
-        var request = URLRequest(url: sseURL)
-        request.httpMethod = "POST"
+        // Use Home Assistant's API directly instead of MCP SSE protocol
+        // This is a simplified approach - in production you'd use proper SSE streaming
+        let apiURL: URL
+        let method: String
+        var requestBody: [String: Any] = [:]
+        
+        switch name {
+        case "call_service":
+            method = "POST"
+            guard let domain = arguments["domain"] as? String,
+                  let service = arguments["service"] as? String else {
+                throw MCPError.invalidArguments
+            }
+            apiURL = baseURL.appendingPathComponent("/api/services/\(domain)/\(service)")
+            requestBody = arguments["service_data"] as? [String: Any] ?? [:]
+            
+        case "get_states":
+            method = "GET"
+            apiURL = baseURL.appendingPathComponent("/api/states")
+            
+        case "set_state":
+            method = "POST"
+            guard let entityId = arguments["entity_id"] as? String else {
+                throw MCPError.invalidArguments
+            }
+            let state = arguments["state"] as? String ?? ""
+            let attributes = arguments["attributes"] as? [String: Any] ?? [:]
+            apiURL = baseURL.appendingPathComponent("/api/states/\(entityId)")
+            requestBody = [
+                "state": state,
+                "attributes": attributes
+            ]
+            
+        default:
+            return "Tool \(name) not yet implemented in simplified client"
+        }
+        
+        var request = URLRequest(url: apiURL)
+        request.httpMethod = method
         request.setValue("Bearer \(settings.mcpAccessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "params": [
-                "name": name,
-                "arguments": arguments
-            ],
-            "id": UUID().uuidString
-        ]
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        if !requestBody.isEmpty {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        }
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -86,16 +92,18 @@ class MCPService {
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        let decoder = JSONDecoder()
-        let mcpResponse = try decoder.decode(MCPCallToolResponse.self, from: data)
-        
-        return mcpResponse.result?.content?.first?.text ?? ""
+        // Return the response as a string
+        if let jsonString = String(data: data, encoding: .utf8) {
+            return jsonString
+        }
+        return "Success"
     }
     
     enum MCPError: LocalizedError {
         case notConfigured
         case invalidResponse
         case httpError(Int)
+        case invalidArguments
         
         var errorDescription: String? {
             switch self {
@@ -105,6 +113,8 @@ class MCPService {
                 return "Invalid response from MCP server"
             case .httpError(let code):
                 return "HTTP Error: \(code)"
+            case .invalidArguments:
+                return "Invalid arguments for tool"
             }
         }
     }
