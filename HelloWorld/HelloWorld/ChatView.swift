@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var thinkingMessage: String?
     @State private var currentToolCall: String?
     @State private var thinkingTokens: String?
+    @State private var temporaryThinkingMessage: ChatMessage?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -25,6 +26,13 @@ struct ChatView: View {
                         ForEach(messages) { message in
                             ChatBubble(message: message)
                                 .id(message.id)
+                        }
+                        
+                        // Show temporary thinking message if present
+                        if let tempMessage = temporaryThinkingMessage {
+                            ChatBubble(message: tempMessage)
+                                .id("thinking-temp")
+                                .opacity(0.7)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -51,47 +59,14 @@ struct ChatView: View {
                     .padding(.bottom, 4)
             }
             
-            // Thinking indicator
-            if let thinking = thinkingMessage {
+            // Current tool call indicator
+            if let toolCall = currentToolCall {
                 HStack {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                    Text(thinking)
+                    Image(systemName: "wrench.fill")
+                        .foregroundColor(.blue)
+                    Text("Calling: \(toolCall)")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 4)
-            }
-            
-            // Thinking tokens display
-            if let tokens = thinkingTokens {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Thinking:")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
-                    ScrollView {
-                        Text(tokens)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(8)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .frame(maxHeight: 120)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-            }
-            
-            // Tool call indicator
-            if let tool = currentToolCall {
-                HStack {
-                    Image(systemName: "wrench")
-                        .foregroundColor(.blue)
-                    Text("Calling: \(tool)")
-                        .font(.caption)
-                        .foregroundColor(.blue)
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 4)
@@ -160,11 +135,15 @@ struct ChatView: View {
                     onThinkingTokens: { tokens in
                         Task { @MainActor in
                             thinkingTokens = tokens
+                            // Update temporary message with thinking tokens
+                            temporaryThinkingMessage = ChatMessage(role: "assistant", content: "Thinking...\n\n\(tokens)")
                         }
                     }
                 )
                 let assistantMessage = ChatMessage(role: "assistant", content: response)
                 await MainActor.run {
+                    // Remove temporary thinking message and add final answer
+                    temporaryThinkingMessage = nil
                     messages.append(assistantMessage)
                     isLoading = false
                     thinkingMessage = nil
@@ -178,6 +157,7 @@ struct ChatView: View {
                     thinkingMessage = nil
                     currentToolCall = nil
                     thinkingTokens = nil
+                    temporaryThinkingMessage = nil
                 }
             }
         }
