@@ -17,19 +17,35 @@ class MCPClient {
     
     // Helper to get session endpoint from SSE
     private func getSessionEndpoint(sseURL: String, accessToken: String) async throws -> String? {
-        guard let baseURL = URL(string: sseURL) else { return nil }
+        guard let baseURL = URL(string: sseURL) else { 
+            print("❌ Invalid SSE URL: \(sseURL)")
+            return nil 
+        }
+        
+        print("🔗 Connecting to: \(sseURL)")
         
         var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
         request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 10
+        request.timeoutInterval = 30  // Increased from 10 to 30 seconds
         
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else { return nil }
+        do {
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Invalid HTTP response")
+                return nil
+            }
+            
+            print("📡 Response status: \(httpResponse.statusCode)")
+            
+            guard (200...299).contains(httpResponse.statusCode) else {
+                print("❌ Bad status code: \(httpResponse.statusCode)")
+                return nil
+            }
         
         // Parse SSE for "event: endpoint" and "data: /messages/..."
         var dataBuffer = Data()
@@ -49,6 +65,10 @@ class MCPClient {
             if dataBuffer.count > 4096 { break }
         }
         return nil
+        } catch {
+            print("❌ Connection error: \(error)")
+            throw error
+        }
     }
     
     // Fetch tools from MCP server (with caching, pulls from settings)
