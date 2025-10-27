@@ -225,7 +225,28 @@ class APIService {
         print("   Raw arguments JSON: \(toolCall.function.arguments)")
         print("   Parsed arguments: \(arguments)")
         
-        return try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
+        // Format the tool call as JSON for debugging
+        let toolCallDict: [String: Any] = [
+            "name": toolCall.function.name,
+            "arguments": arguments
+        ]
+        
+        let toolCallJSON = try JSONSerialization.data(withJSONObject: toolCallDict, options: .prettyPrinted)
+        let toolCallString = String(data: toolCallJSON, encoding: .utf8) ?? ""
+        
+        let result = try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
+        
+        // Format the result
+        let fullToolInfo = """
+        MCP Tool Call:
+        \(toolCallString)
+        
+        Result: \(result)
+        """
+        
+        print("📋 Full tool info:\n\(fullToolInfo)")
+        
+        return result
     }
     
     enum APIError: LocalizedError {
