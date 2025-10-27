@@ -118,7 +118,10 @@ class MCPClient {
     }
     
     // Fetch tools from MCP server via SSE transport
+    // Note: We need to keep the SSE connection open for the session to remain valid
     private func fetchToolsFromServer(sseURL: String, accessToken: String) async throws -> [MCPTool] {
+        // Strategy: Open a new SSE connection, get session endpoint, then use it immediately
+        // The session will stay valid as long as we keep the connection open briefly
         guard let endpoint = try await getSessionEndpoint(sseURL: sseURL, accessToken: accessToken) else {
             print("❌ Could not get session endpoint from SSE")
             return []
@@ -139,7 +142,8 @@ class MCPClient {
         
         // The endpoint is an absolute path like /mcp_server/messages/...
         // Construct full URL: scheme://host:port + endpoint
-        let fullURL = "\(baseURL.scheme ?? "http")://\(baseURL.host ?? ""):\(baseURL.port ?? 8123)\(endpoint.trimmingCharacters(in: .whitespaces))"
+        let trimmedEndpoint = endpoint.trimmingCharacters(in: .whitespaces)
+        let fullURL = "\(baseURL.scheme ?? "http")://\(baseURL.host ?? ""):\(baseURL.port ?? 8123)\(trimmedEndpoint)"
         
         guard let messagesURL = URL(string: fullURL) else {
             print("❌ Invalid messages URL: \(fullURL)")
@@ -147,6 +151,8 @@ class MCPClient {
         }
         
         print("🔗 Sending tools/list to: \(fullURL)")
+        print("   Base URL: \(baseURLString)")
+        print("   Endpoint: \(trimmedEndpoint)")
         
         // Step 4: Send JSON-RPC request to messages endpoint
         let requestBody: [String: Any] = [
