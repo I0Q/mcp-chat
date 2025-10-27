@@ -18,7 +18,7 @@ struct ChatView: View {
     @State private var temporaryThinkingMessage: ChatMessage?
     @State private var mcpToolCallInfo: String?
     @State private var isRecordingVoice = false
-    @State private var voiceService = VoiceService.shared
+    @ObservedObject private var voiceService = VoiceService.shared
     
     var body: some View {
         VStack(spacing: 0) {
