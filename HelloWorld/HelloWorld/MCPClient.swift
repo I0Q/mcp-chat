@@ -15,13 +15,9 @@ class MCPClient {
     // Fetch tools from MCP server via mcp-proxy
     // The sseURL parameter should point to mcp-proxy's HTTP endpoint
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        // HARDCODED TEST - use mcp-proxy endpoint
-        let hardcodedURL = "http://192.168.1.232:8000"
-        guard let baseURL = URL(string: hardcodedURL) else {
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
-        
-        print("🧪 HARDCODED TEST: Using \(hardcodedURL)")
         
         // Send tools/list JSON-RPC request
         let requestBody: [String: Any] = [
