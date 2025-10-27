@@ -12,30 +12,71 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via SSE
+    // Fetch tools from MCP server via mcp-proxy
+    // The sseURL parameter should point to mcp-proxy's HTTP endpoint
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let url = URL(string: sseURL) else {
+        // mcp-proxy exposes standard HTTP endpoints, not SSE directly
+        // Try JSON-RPC endpoint first
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        print("🔗 Connecting to SSE endpoint: \(sseURL)")
+        // Send tools/list JSON-RPC request
+        let requestBody: [String: Any] = [
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "id": UUID().uuidString,
+            "params": [:]
+        ]
         
-        // SSE requires streaming connection, but for now just try basic GET
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        // Add auth header if token provided
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // For SSE, we get a 200 response but data streams continuously
-        // Tool discovery is complex over SSE, so for now return empty
-        // The LLM can still call tools without the tools list
-        print("⚠️ Tool discovery via SSE not yet implemented")
-        print("💡 Returning empty tools - LLM can still call tools dynamically")
-        return []
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        request.timeoutInterval = 10
+        
+        print("🔗 Fetching tools via mcp-proxy from: \(sseURL)")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw MCPError.invalidResponse
+        }
+        
+        print("📡 Response Status: \(httpResponse.statusCode)")
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            print("❌ Error: \(errorBody)")
+            throw MCPError.httpError(httpResponse.statusCode)
+        }
+        
+        // Parse response
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Could not parse JSON")
+            return []
+        }
+        
+        print("📦 Response: \(json)")
+        
+        // Parse tools from result
+        var tools: [MCPTool] = []
+        
+        if let result = json["result"] as? [String: Any],
+           let toolsArray = result["tools"] as? [[String: Any]] {
+            tools = parseTools(toolsArray)
+        } else if let toolsArray = json["tools"] as? [[String: Any]] {
+            tools = parseTools(toolsArray)
+        }
+        
+        print("✅ Fetched \(tools.count) tools")
+        return tools
     }
     
     private func parseTools(_ toolsArray: [[String: Any]]) -> [MCPTool] {
