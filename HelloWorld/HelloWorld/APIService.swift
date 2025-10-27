@@ -39,7 +39,11 @@ class APIService {
                 "medium": "balanced",
                 "high": "expressive"
             ]
-            requestBody["mode"] = modeMap[settings.thinkingEffort] ?? "balanced"
+            let mode = modeMap[settings.thinkingEffort] ?? "balanced"
+            requestBody["mode"] = mode
+            print("🧠 Thinking mode enabled: \(settings.thinkingEffort) -> \(mode)")
+        } else {
+            print("❌ Thinking mode is disabled")
         }
         
         // If MCP is enabled, add tools to the request
@@ -96,9 +100,12 @@ class APIService {
         
         // Extract and display thinking tokens if present
         if let thinking = responseData.choices.first?.message.thinking {
+            print("🧠 Thinking tokens received: \(thinking)")
             await MainActor.run {
                 onThinkingTokens?(thinking)
             }
+        } else {
+            print("❌ No thinking tokens in response")
         }
         
         // Check if the model wants to use a tool
