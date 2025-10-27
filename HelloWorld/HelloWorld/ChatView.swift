@@ -245,13 +245,18 @@ struct ChatView: View {
                 let transcribedText = try await voiceService.transcribe(audioURL: audioURL)
                 
                 await MainActor.run {
+                    // Show transcribed text in input field
                     inputText = transcribedText
                     isLoading = false
                     thinkingMessage = nil
                 }
                 
-                // Auto-send the transcribed message
-                sendMessage()
+                // Auto-send after a brief delay to show the text first
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                
+                await MainActor.run {
+                    sendMessage()
+                }
             } catch {
                 await MainActor.run {
                     errorMessage = "Transcription failed: \(error.localizedDescription)"
