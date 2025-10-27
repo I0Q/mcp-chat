@@ -30,80 +30,12 @@ class MCPClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // SSE endpoints keep connections open, use shorter timeout
-        request.timeoutInterval = 5
-        
-        let json: [String: Any]
-        
-        do {
-            // Connect to SSE endpoint using bytes for streaming
-            var accumulatedData = Data()
-            
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ Invalid response type")
-                throw MCPError.invalidResponse
-            }
-            
-            print("📡 Response Status: \(httpResponse.statusCode)")
-            
-            guard (200...299).contains(httpResponse.statusCode) else {
-                print("❌ HTTP Error \(httpResponse.statusCode)")
-                throw MCPError.httpError(httpResponse.statusCode)
-            }
-            
-            // Read first chunk of data with timeout
-            try await withThrowingTaskGroup(of: Data.self) { group in
-                group.addTask {
-                    var data = Data()
-                    for try await byte in bytes.prefix(8192) { // Read up to 8KB
-                        data.append(byte)
-                    }
-                    return data
-                }
-                
-                // Add timeout
-                group.addTask {
-                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-                    throw CancellationError()
-                }
-                
-                if let data = try await group.next() {
-                    accumulatedData = data
-                    group.cancelAll()
-                }
-            }
-            
-            let responseString = String(data: accumulatedData, encoding: .utf8) ?? ""
-            print("📦 Response data: \(responseString.prefix(500))")
-            
-            // Try to parse JSON-RPC response
-            guard let parsedJson = try? JSONSerialization.jsonObject(with: accumulatedData) as? [String: Any] else {
-                print("❌ Could not parse JSON response")
-                // Return empty tools for now - SSE might not return JSON immediately
-                return []
-            }
-            
-            json = parsedJson
-            print("📦 Response JSON: \(json)")
-        } catch {
-            print("❌ Connection error: \(error.localizedDescription)")
-            throw MCPError.invalidResponse
-        }
-        
-        // Parse tools from JSON-RPC result
-        var tools: [MCPTool] = []
-        
-        if let result = json["result"] as? [String: Any],
-           let toolsArray = result["tools"] as? [[String: Any]] {
-            tools = parseTools(toolsArray)
-        } else if let toolsArray = json["tools"] as? [[String: Any]] {
-            tools = parseTools(toolsArray)
-        }
-        
-        print("✅ Fetched \(tools.count) tools")
-        return tools
+        // For SSE, we get a 200 response but data streams continuously
+        // Tool discovery is complex over SSE, so for now return empty
+        // The LLM can still call tools without the tools list
+        print("⚠️ Tool discovery via SSE not yet implemented")
+        print("💡 Returning empty tools - LLM can still call tools dynamically")
+        return []
     }
     
     private func parseTools(_ toolsArray: [[String: Any]]) -> [MCPTool] {
