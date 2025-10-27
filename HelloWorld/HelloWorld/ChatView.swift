@@ -143,14 +143,6 @@ struct ChatView: View {
                 let capturedThinking = thinkingTokens
                 print("📝 Creating assistant message with thinking: \(capturedThinking ?? "nil")")
                 
-                await MainActor.run {
-                    // If we have thinking tokens, add thinking message to chat history
-                    if let thinking = capturedThinking, !thinking.isEmpty {
-                        let thinkingMsg = ChatMessage(role: "assistant", content: "🤔 Thinking...\n\n\(thinking)")
-                        messages.append(thinkingMsg)
-                    }
-                }
-                
                 let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: capturedThinking)
                 await MainActor.run {
                     // Add final answer (thinking message is already in chat history)
