@@ -234,7 +234,7 @@ class MCPClient {
         messagesRequest.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
         messagesRequest.timeoutInterval = 10
         
-        let settings = SettingsManager.shared
+        // Use settings from earlier in function
         if settings.mcpUseAuth && !accessToken.isEmpty {
             messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
