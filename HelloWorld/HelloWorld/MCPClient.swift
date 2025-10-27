@@ -23,7 +23,8 @@ class MCPClient {
         // Step 1: Connect to SSE endpoint to get session endpoint
         var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        // Per MCP spec, include both content types in Accept header
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 10
         
         if !accessToken.isEmpty {
@@ -106,6 +107,8 @@ class MCPClient {
         var messagesRequest = URLRequest(url: messagesURL)
         messagesRequest.httpMethod = "POST"
         messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Per MCP spec, include both content types in Accept header
+        messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
         messagesRequest.timeoutInterval = 10
         
         if !accessToken.isEmpty {
