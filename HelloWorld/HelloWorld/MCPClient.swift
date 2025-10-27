@@ -2,7 +2,8 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  Generic MCP client using SwiftMCP library
+//  Generic MCP client - Direct SSE implementation following MCP spec
+//  Communicates with MCP servers via HTTP+SSE transport
 //
 
 import Foundation
@@ -12,8 +13,7 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via SSE - using existing working implementation
-    // TODO: Replace with SwiftMCP client when client API is ready
+    // Fetch tools from MCP server via SSE transport
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         print("🔗 Connecting to MCP server via SSE: \(sseURL)")
         

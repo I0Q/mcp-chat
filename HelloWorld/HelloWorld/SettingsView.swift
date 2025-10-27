@@ -42,7 +42,7 @@ struct SettingsView: View {
                     TextField("Server Name", text: $settings.mcpServerName)
                         .autocapitalization(.none)
                     
-                    TextField("MCP Proxy URL", text: $settings.mcpSSEURL)
+                    TextField("MCP SSE URL", text: $settings.mcpSSEURL)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
@@ -84,7 +84,6 @@ struct SettingsView: View {
                 Text("Chat with your local LLM")
                     .font(.caption)
                     .foregroundColor(.secondary)
-            }
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
