@@ -2,7 +2,7 @@
 //  MCPClient.swift
 //  HelloWorld
 //
-//  Generic MCP client using Server-Sent Events (SSE) transport
+//  Generic MCP client using SwiftMCP library
 //
 
 import Foundation
@@ -12,7 +12,8 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via SSE - get session endpoint then send JSON-RPC
+    // Fetch tools from MCP server via SSE - using existing working implementation
+    // TODO: Replace with SwiftMCP client when client API is ready
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         print("🔗 Connecting to MCP server via SSE: \(sseURL)")
         
@@ -111,7 +112,8 @@ class MCPClient {
         messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
         messagesRequest.timeoutInterval = 10
         
-        if !accessToken.isEmpty {
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
             messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -169,11 +171,79 @@ class MCPClient {
     
     // Call a tool on the MCP server
     func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let url = URL(string: sseURL) else {
+        print("🔧 Calling tool: \(toolName) with args: \(arguments)")
+        
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        // Send JSON-RPC request
+        // Step 1: Connect to SSE endpoint to get session endpoint (same as fetchTools)
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "GET"
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 10
+        
+        if !accessToken.isEmpty {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw MCPError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw MCPError.httpError(httpResponse.statusCode)
+        }
+        
+        // Parse SSE to get session endpoint
+        var dataBuffer = Data()
+        var sessionEndpoint: String?
+        
+        for try await byte in bytes.prefix(8192) {
+            dataBuffer.append(byte)
+            
+            if let messageString = String(data: dataBuffer, encoding: .utf8) {
+                let lines = messageString.components(separatedBy: .newlines)
+                for (index, line) in lines.enumerated() {
+                    if line == "event: endpoint" && index + 1 < lines.count {
+                        let dataLine = lines[index + 1]
+                        if dataLine.hasPrefix("data: ") {
+                            sessionEndpoint = String(dataLine.dropFirst(6))
+                            break
+                        }
+                    }
+                }
+                
+                if sessionEndpoint != nil {
+                    break
+                }
+                
+                if dataBuffer.count > 4096 {
+                    break
+                }
+            }
+        }
+        
+        guard let endpoint = sessionEndpoint else {
+            throw MCPError.invalidResponse
+        }
+        
+        // Step 2: Build full messages URL
+        var messagesURLString = sseURL
+        if messagesURLString.hasSuffix("/sse") {
+            messagesURLString = String(messagesURLString.dropLast(4))
+        }
+        
+        let cleanEndpoint = endpoint.hasPrefix("/") ? String(endpoint.dropFirst()) : endpoint
+        let fullURL = "\(messagesURLString)\(cleanEndpoint.hasPrefix("/") ? "" : "/")\(cleanEndpoint)"
+        
+        guard let messagesURL = URL(string: fullURL) else {
+            throw MCPError.invalidURL
+        }
+        
+        // Step 3: Send JSON-RPC request to messages endpoint
         let requestBody: [String: Any] = [
             "jsonrpc": "2.0",
             "method": "tools/call",
@@ -184,30 +254,29 @@ class MCPClient {
             ]
         ]
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        var messagesRequest = URLRequest(url: messagesURL)
+        messagesRequest.httpMethod = "POST"
+        messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        messagesRequest.timeoutInterval = 10
         
-        // Add auth header if token provided
-        if !accessToken.isEmpty {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        messagesRequest.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
-        print("🔧 Calling tool: \(toolName) with args: \(arguments)")
+        let (data, messagesResponse) = try await URLSession.shared.data(for: messagesRequest)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let httpMessagesResponse = messagesResponse as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
         
-        guard (200...299).contains(httpResponse.statusCode) else {
+        guard (200...299).contains(httpMessagesResponse.statusCode) else {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
             print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
+            throw MCPError.httpError(httpMessagesResponse.statusCode)
         }
         
         // Parse JSON-RPC response
