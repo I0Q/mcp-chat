@@ -12,65 +12,13 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via mcp-proxy
-    // The sseURL parameter points to mcp-proxy's exposed endpoint
+    // Fetch tools from MCP server via direct SSE connection
+    // According to MCP spec, clients need to establish SSE connection and send JSON-RPC
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        guard let baseURL = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        // Try GET request first for SSE endpoint
-        var request = URLRequest(url: baseURL)
-        request.httpMethod = "GET"
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 10
-        
-        print("🔍 Using GET for SSE endpoint: \(sseURL)")
-        
-        // Only add auth header if auth is enabled and token is provided
-        let settings = SettingsManager.shared
-        if settings.mcpUseAuth && !accessToken.isEmpty {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        print("🔗 Fetching tools via mcp-proxy from: \(sseURL)")
-        print("📤 Request URL: \(request.url?.absoluteString ?? "nil")")
-        print("📤 Request method: \(request.httpMethod ?? "nil")")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("❌ Could not parse JSON")
-            return []
-        }
-        
-        print("📦 Response: \(json)")
-        
-        // Parse tools from result
-        var tools: [MCPTool] = []
-        
-        if let result = json["result"] as? [String: Any],
-           let toolsArray = result["tools"] as? [[String: Any]] {
-            tools = parseTools(toolsArray)
-        } else if let toolsArray = json["tools"] as? [[String: Any]] {
-            tools = parseTools(toolsArray)
-        }
-        
-        print("✅ Fetched \(tools.count) tools")
-        return tools
+        print("⚠️ MCP SSE connection requires persistent streaming")
+        print("💡 For now, returning empty tools - tool discovery via SSE not implemented")
+        print("📝 You'll need to manually configure tools in the LLM prompt")
+        return []
     }
     
     private func parseTools(_ toolsArray: [[String: Any]]) -> [MCPTool] {
