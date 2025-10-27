@@ -92,6 +92,12 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var showMCPInReasoning: Bool {
+        didSet {
+            UserDefaults.standard.set(showMCPInReasoning, forKey: "showMCPInReasoning")
+        }
+    }
+    
     private init() {
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://192.168.1.232:1234"
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel") ?? "openai/gpt-oss-20b"
@@ -108,6 +114,7 @@ class SettingsManager: ObservableObject {
         self.voiceEnabled = UserDefaults.standard.bool(forKey: "voiceEnabled")
         self.voiceServiceURL = UserDefaults.standard.string(forKey: "voiceServiceURL") ?? "http://192.168.1.232:8005"
         self.voiceServiceType = UserDefaults.standard.string(forKey: "voiceServiceType") ?? "openai-whisper"
+        self.showMCPInReasoning = UserDefaults.standard.bool(forKey: "showMCPInReasoning")
         
         // Migrate old model names
         if selectedModel == "gpt-oss-120b" {
