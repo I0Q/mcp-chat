@@ -30,14 +30,16 @@ class MCPClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // Set a timeout
-        request.timeoutInterval = 10
+        // SSE endpoints keep connections open, use shorter timeout
+        request.timeoutInterval = 5
         
         let json: [String: Any]
         
         do {
-            // Connect to SSE endpoint
-            let (data, response) = try await URLSession.shared.data(for: request)
+            // Connect to SSE endpoint using bytes for streaming
+            var accumulatedData = Data()
+            
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("❌ Invalid response type")
@@ -47,18 +49,39 @@ class MCPClient {
             print("📡 Response Status: \(httpResponse.statusCode)")
             
             guard (200...299).contains(httpResponse.statusCode) else {
-                let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-                print("❌ HTTP Error \(httpResponse.statusCode): \(errorBody)")
+                print("❌ HTTP Error \(httpResponse.statusCode)")
                 throw MCPError.httpError(httpResponse.statusCode)
             }
             
-            let responseString = String(data: data, encoding: .utf8) ?? ""
+            // Read first chunk of data with timeout
+            try await withThrowingTaskGroup(of: Data.self) { group in
+                group.addTask {
+                    var data = Data()
+                    for try await byte in bytes.prefix(8192) { // Read up to 8KB
+                        data.append(byte)
+                    }
+                    return data
+                }
+                
+                // Add timeout
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                    throw CancellationError()
+                }
+                
+                if let data = try await group.next() {
+                    accumulatedData = data
+                    group.cancelAll()
+                }
+            }
+            
+            let responseString = String(data: accumulatedData, encoding: .utf8) ?? ""
             print("📦 Response data: \(responseString.prefix(500))")
             
             // Try to parse JSON-RPC response
-            guard let parsedJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            guard let parsedJson = try? JSONSerialization.jsonObject(with: accumulatedData) as? [String: Any] else {
                 print("❌ Could not parse JSON response")
-                // Return empty tools for now
+                // Return empty tools for now - SSE might not return JSON immediately
                 return []
             }
             
