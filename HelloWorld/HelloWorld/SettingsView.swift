@@ -70,6 +70,25 @@ struct SettingsView: View {
                 }
             }
             
+            Section(header: Text("Voice Transcription")) {
+                Toggle("Enable Voice Input", isOn: $settings.voiceEnabled)
+                
+                if settings.voiceEnabled {
+                    Picker("Service Type", selection: $settings.voiceServiceType) {
+                        Text("OpenAI Whisper").tag("openai-whisper")
+                        Text("Custom API").tag("custom-api")
+                    }
+                    
+                    TextField("Transcription Service URL", text: $settings.voiceServiceURL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    
+                    Text("Default: http://192.168.1.232:8080")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
             Section(header: Text("Information")) {
                 HStack {
                     Text("Server Status")
