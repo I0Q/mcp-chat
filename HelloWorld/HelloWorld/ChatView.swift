@@ -16,6 +16,7 @@ struct ChatView: View {
     @State private var currentToolCall: String?
     @State private var thinkingTokens: String?
     @State private var temporaryThinkingMessage: ChatMessage?
+    @State private var mcpToolCallInfo: String?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -136,6 +137,10 @@ struct ChatView: View {
                     onThinkingTokens: { tokens in
                         // Set thinking tokens synchronously so they're available when we capture
                         thinkingTokens = tokens
+                    },
+                    onMCPToolInfo: { toolInfo in
+                        // Capture MCP tool call information
+                        mcpToolCallInfo = toolInfo
                     }
                 )
                 
@@ -143,7 +148,15 @@ struct ChatView: View {
                 let capturedThinking = thinkingTokens
                 print("📝 Creating assistant message with thinking: \(capturedThinking ?? "nil")")
                 
-                let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: capturedThinking)
+                // Combine thinking with MCP tool info if available
+                var fullThinking = capturedThinking
+                if let toolInfo = mcpToolCallInfo, let thinking = capturedThinking {
+                    fullThinking = "\(thinking)\n\n\(toolInfo)"
+                } else if let toolInfo = mcpToolCallInfo {
+                    fullThinking = toolInfo
+                }
+                
+                let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: fullThinking)
                 await MainActor.run {
                     // Add final answer (thinking message is already in chat history)
                     temporaryThinkingMessage = nil
@@ -152,6 +165,7 @@ struct ChatView: View {
                     thinkingMessage = nil
                     currentToolCall = nil
                     thinkingTokens = nil
+                    mcpToolCallInfo = nil
                 }
             } catch {
                 await MainActor.run {

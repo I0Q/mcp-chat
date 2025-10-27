@@ -12,7 +12,7 @@ class APIService {
     
     private init() {}
     
-    func sendMessage(message: String, chatHistory: [ChatMessage], onThinking: ((String?) -> Void)? = nil, onToolCall: ((String?) -> Void)? = nil, onThinkingTokens: ((String) -> Void)? = nil) async throws -> String {
+    func sendMessage(message: String, chatHistory: [ChatMessage], onThinking: ((String?) -> Void)? = nil, onToolCall: ((String?) -> Void)? = nil, onThinkingTokens: ((String) -> Void)? = nil, onMCPToolInfo: ((String) -> Void)? = nil) async throws -> String {
         let settings = SettingsManager.shared
         let urlString = "\(settings.serverURL)/v1/chat/completions"
         
@@ -119,6 +119,14 @@ class APIService {
             // Execute the tool call
             let toolResult = try await executeToolCall(toolCall)
             
+            // Send tool info to callback if available
+            if let toolInfo = capturedToolInfo {
+                await MainActor.run {
+                    onMCPToolInfo?(toolInfo)
+                }
+                capturedToolInfo = nil // Clear after sending
+            }
+            
             // Clear thinking message
             await MainActor.run {
                 onThinking?(nil)
@@ -213,6 +221,8 @@ class APIService {
         return responseData.choices.first?.message.content ?? ""
     }
     
+    var capturedToolInfo: String? // Store tool info for the callback
+    
     private func executeToolCall(_ toolCall: ChatCompletionResponse.ToolCall) async throws -> String {
         // Parse the arguments JSON string into a dictionary
         guard let jsonData = toolCall.function.arguments.data(using: .utf8) else {
@@ -236,13 +246,16 @@ class APIService {
         
         let result = try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
         
-        // Format the result
+        // Format the full tool info for display in UI
         let fullToolInfo = """
         MCP Tool Call:
         \(toolCallString)
         
         Result: \(result)
         """
+        
+        // Store for the callback
+        capturedToolInfo = fullToolInfo
         
         print("📋 Full tool info:\n\(fullToolInfo)")
         
