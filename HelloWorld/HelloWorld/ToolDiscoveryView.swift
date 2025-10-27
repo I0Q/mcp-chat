@@ -131,7 +131,7 @@ struct ToolDiscoveryView: View {
         
         Task {
             do {
-                let tools = try await MCPService.shared.fetchTools()
+                let tools = try await MCPClient.shared.fetchTools()
                 await MainActor.run {
                     discoveredTools = tools
                     isDiscovering = false

@@ -11,10 +11,23 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
+    private var cachedTools: [MCPTool] = []
+    
     private init() {}
     
+    // Fetch tools from MCP server (with caching, pulls from settings)
+    func fetchTools() async throws -> [MCPTool] {
+        if !cachedTools.isEmpty { return cachedTools }
+        
+        let settings = SettingsManager.shared
+        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else { return [] }
+        
+        cachedTools = try await fetchToolsFromServer(sseURL: settings.mcpSSEURL, accessToken: settings.mcpAccessToken)
+        return cachedTools
+    }
+    
     // Fetch tools from MCP server via SSE transport
-    func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
+    private func fetchToolsFromServer(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         print("🔗 Connecting to MCP server via SSE: \(sseURL)")
         
         guard let baseURL = URL(string: sseURL) else {
@@ -169,9 +182,19 @@ class MCPClient {
         }
     }
     
+    // Call a tool on the MCP server (pulls from settings)
+    func callTool(name: String, arguments: [String: Any]) async throws -> String {
+        let settings = SettingsManager.shared
+        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
+            throw MCPError.invalidURL
+        }
+        
+        return try await callToolOnServer(name: name, arguments: arguments, sseURL: settings.mcpSSEURL, accessToken: settings.mcpAccessToken)
+    }
+    
     // Call a tool on the MCP server
-    func callTool(toolName: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        print("🔧 Calling tool: \(toolName) with args: \(arguments)")
+    private func callToolOnServer(name: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
+        print("🔧 Calling tool: \(name) with args: \(arguments)")
         
         guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL

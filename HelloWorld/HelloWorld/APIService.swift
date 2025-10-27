@@ -46,7 +46,7 @@ class APIService {
         if settings.mcpEnabled {
             // Fetch tools from MCP server
             do {
-                let tools = try await MCPService.shared.fetchTools()
+                let tools = try await MCPClient.shared.fetchTools()
                 
                 if !tools.isEmpty {
                     requestBody["tools"] = tools.map { tool in
@@ -201,7 +201,7 @@ class APIService {
     
     private func executeToolCall(_ toolCall: ChatCompletionResponse.ToolCall) async throws -> String {
         let arguments = try JSONSerialization.jsonObject(with: toolCall.function.arguments.data(using: .utf8)!) as? [String: Any] ?? [:]
-        return try await MCPService.shared.callTool(name: toolCall.function.name, arguments: arguments)
+        return try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
     }
     
     enum APIError: LocalizedError {
