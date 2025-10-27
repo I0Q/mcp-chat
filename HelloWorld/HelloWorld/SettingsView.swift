@@ -112,7 +112,7 @@ struct SettingsView: View {
             }
         }
     }
-
+}
 
 #Preview {
     NavigationView {
