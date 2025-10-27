@@ -20,8 +20,7 @@ class MCPClient {
         
         print("🔗 Connecting to SSE endpoint: \(sseURL)")
         
-        // For SSE, we need to establish a connection and send JSON-RPC via messages
-        // Home Assistant MCP uses SSE transport
+        // SSE requires streaming connection, but for now just try basic GET
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
@@ -31,27 +30,41 @@ class MCPClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // Connect to SSE endpoint
-        let (data, response) = try await URLSession.shared.data(for: request)
+        // Set a timeout
+        request.timeoutInterval = 10
         
-        guard let httpResponse = response as? HTTPURLResponse else {
+        do {
+            // Connect to SSE endpoint
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ Invalid response type")
+                throw MCPError.invalidResponse
+            }
+            
+            print("📡 Response Status: \(httpResponse.statusCode)")
+            
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+                print("❌ HTTP Error \(httpResponse.statusCode): \(errorBody)")
+                throw MCPError.httpError(httpResponse.statusCode)
+            }
+            
+            let responseString = String(data: data, encoding: .utf8) ?? ""
+            print("📦 Response data: \(responseString.prefix(500))")
+            
+            // Try to parse JSON-RPC response
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                print("❌ Could not parse JSON response")
+                // Return empty tools for now
+                return []
+            }
+            
+            print("📦 Response JSON: \(json)")
+        } catch {
+            print("❌ Connection error: \(error.localizedDescription)")
             throw MCPError.invalidResponse
         }
-        
-        print("📡 Response Status: \(httpResponse.statusCode)")
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse JSON-RPC response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📦 Response: \(json)")
         
         // Parse tools from JSON-RPC result
         var tools: [MCPTool] = []
