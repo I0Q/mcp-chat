@@ -143,7 +143,7 @@ struct ChatView: View {
                     }
                 )
                 
-                let assistantMessage = ChatMessage(role: "assistant", content: response)
+                let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: thinkingTokens)
                 await MainActor.run {
                     // Remove temporary thinking message and add final answer
                     temporaryThinkingMessage = nil
@@ -169,6 +169,7 @@ struct ChatView: View {
 
 struct ChatBubble: View {
     let message: ChatMessage
+    @State private var showThinking = false
     
     var body: some View {
         HStack {
@@ -177,11 +178,39 @@ struct ChatBubble: View {
             }
             
             VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 4) {
-                Text(message.content)
-                    .padding()
-                    .background(message.role == "user" ? Color.blue : Color.gray.opacity(0.2))
-                    .foregroundColor(message.role == "user" ? .white : .primary)
-                    .cornerRadius(16)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(message.content)
+                        .padding()
+                        .background(message.role == "user" ? Color.blue : Color.gray.opacity(0.2))
+                        .foregroundColor(message.role == "user" ? .white : .primary)
+                        .cornerRadius(16)
+                    
+                    // Show thinking tokens if available
+                    if let thinking = message.thinking, !thinking.isEmpty {
+                        Button(action: { showThinking.toggle() }) {
+                            HStack {
+                                Image(systemName: showThinking ? "chevron.up" : "chevron.down")
+                                Text(showThinking ? "Hide reasoning" : "Show reasoning")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                        
+                        if showThinking {
+                            Text(thinking)
+                                .font(.caption)
+                                .padding()
+                                .background(Color.yellow.opacity(0.2))
+                                .foregroundColor(.primary)
+                                .cornerRadius(8)
+                                .frame(maxWidth: 280)
+                        }
+                    }
+                }
                 
                 Text(message.timestamp, style: .time)
                     .font(.caption2)
