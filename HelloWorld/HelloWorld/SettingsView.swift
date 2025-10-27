@@ -53,6 +53,18 @@ struct SettingsView: View {
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
                     }
+                    
+                    NavigationLink(destination: ToolDiscoveryView()) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                            Text("Discover & Select Tools")
+                            Spacer()
+                            if !settings.selectedTools.isEmpty {
+                                Text("(\(settings.selectedTools.count))")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
                 }
             }
             
