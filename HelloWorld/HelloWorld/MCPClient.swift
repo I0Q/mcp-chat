@@ -66,9 +66,11 @@ class MCPClient {
                 }
                 
                 // Process new complete lines
+                print("📊 Processing lines \(lastLineIndex) to \(lines.count - 1)")
                 for index in lastLineIndex..<(lines.count - 1) { // -1 to skip partial last line
                     let line = lines[index]
                     let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                    print("📝 Processing line \(index): '\(line)'")
                     
                     // Look for "event: endpoint"
                     if trimmedLine == "event: endpoint" {
