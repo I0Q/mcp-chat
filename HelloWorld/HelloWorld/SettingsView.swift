@@ -83,7 +83,7 @@ struct SettingsView: View {
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
-                    Text("Default: http://192.168.1.232:8080")
+                    Text("Default: http://192.168.1.232:8005")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

@@ -115,7 +115,7 @@ class SettingsManager: ObservableObject {
         
         // Voice Transcription Settings
         self.voiceEnabled = UserDefaults.standard.bool(forKey: "voiceEnabled")
-        self.voiceServiceURL = UserDefaults.standard.string(forKey: "voiceServiceURL") ?? "http://192.168.1.232:8080"
+        self.voiceServiceURL = UserDefaults.standard.string(forKey: "voiceServiceURL") ?? "http://192.168.1.232:8005"
         self.voiceServiceType = UserDefaults.standard.string(forKey: "voiceServiceType") ?? "openai-whisper"
         
         // Migrate old model names
