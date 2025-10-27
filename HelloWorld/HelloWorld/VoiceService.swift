@@ -135,31 +135,35 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
             throw VoiceError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON response - the server returns: {"text": "transcribed text"}
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("❌ Failed to parse JSON. Response: \(String(data: data, encoding: .utf8) ?? "unknown")")
-            throw VoiceError.decodingError
+        // Try to parse as JSON first
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // Try different possible response formats
+            var text: String?
+            
+            if let transcribedText = json["text"] as? String {
+                text = transcribedText
+            } else if let segments = json["segments"] as? [[String: Any]] {
+                // If response has segments, extract all text
+                text = segments.compactMap { $0["text"] as? String }.joined(separator: " ")
+            } else if let result = json["result"] as? String {
+                text = result
+            }
+            
+            if let finalText = text, !finalText.isEmpty {
+                print("✅ Transcription: \(finalText)")
+                return finalText
+            }
         }
         
-        // Try different possible response formats
-        var text: String?
-        
-        if let transcribedText = json["text"] as? String {
-            text = transcribedText
-        } else if let segments = json["segments"] as? [[String: Any]] {
-            // If response has segments, extract all text
-            text = segments.compactMap { $0["text"] as? String }.joined(separator: " ")
-        } else if let result = json["result"] as? String {
-            text = result
+        // If not JSON or failed to parse JSON, try as plain text
+        if let plainText = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !plainText.isEmpty {
+            print("✅ Transcription (plain text): \(plainText)")
+            return plainText
         }
         
-        guard let finalText = text, !finalText.isEmpty else {
-            print("❌ No text found in response: \(json)")
-            throw VoiceError.decodingError
-        }
-        
-        print("✅ Transcription: \(finalText)")
-        return finalText
+        // Failed to decode
+        print("❌ Failed to parse response. Raw data: \(String(data: data, encoding: .utf8) ?? "unknown")")
+        throw VoiceError.decodingError
     }
     
     enum VoiceError: LocalizedError {
