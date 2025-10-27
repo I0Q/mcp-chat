@@ -27,9 +27,11 @@ class MCPClient {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
         request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30  // Increased from 10 to 30 seconds
+        request.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
+        request.timeoutInterval = 30
         
-        if !accessToken.isEmpty {
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -152,6 +154,7 @@ class MCPClient {
         messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // Per MCP spec, include both content types in Accept header
         messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        messagesRequest.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
         messagesRequest.timeoutInterval = 10
         
         let settings = SettingsManager.shared
@@ -255,6 +258,7 @@ class MCPClient {
         messagesRequest.httpMethod = "POST"
         messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        messagesRequest.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
         messagesRequest.timeoutInterval = 10
         
         let settings = SettingsManager.shared
