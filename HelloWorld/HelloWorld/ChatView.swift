@@ -136,9 +136,6 @@ struct ChatView: View {
                     onThinkingTokens: { tokens in
                         Task { @MainActor in
                             thinkingTokens = tokens
-                            // Add thinking message to chat
-                            let thinkingMsg = ChatMessage(role: "assistant", content: "🤔 Thinking...\n\n\(tokens)")
-                            temporaryThinkingMessage = thinkingMsg
                         }
                     }
                 )
@@ -146,9 +143,18 @@ struct ChatView: View {
                 // Capture thinkingTokens from the current state before clearing
                 let capturedThinking = thinkingTokens
                 print("📝 Creating assistant message with thinking: \(capturedThinking ?? "nil")")
+                
+                await MainActor.run {
+                    // If we have thinking tokens, add thinking message to chat history
+                    if let thinking = capturedThinking, !thinking.isEmpty {
+                        let thinkingMsg = ChatMessage(role: "assistant", content: "🤔 Thinking...\n\n\(thinking)")
+                        messages.append(thinkingMsg)
+                    }
+                }
+                
                 let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: capturedThinking)
                 await MainActor.run {
-                    // Remove temporary thinking message and add final answer
+                    // Add final answer (thinking message is already in chat history)
                     temporaryThinkingMessage = nil
                     messages.append(assistantMessage)
                     isLoading = false
