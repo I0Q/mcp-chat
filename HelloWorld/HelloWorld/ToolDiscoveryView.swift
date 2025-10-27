@@ -12,16 +12,17 @@ struct ToolDiscoveryView: View {
     @State private var discoveredTools: [MCPTool] = []
     @State private var selectedTools: Set<String> = []
     @State private var isDiscovering = false
+    @State private var isLoadingCached = true
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationView {
             VStack {
-                if isDiscovering {
+                if isLoadingCached || isDiscovering {
                     ProgressView()
                         .scaleEffect(1.5)
-                    Text("Discovering tools...")
+                    Text(isDiscovering ? "Discovering tools..." : "Loading tools...")
                         .padding()
                 } else if errorMessage != nil {
                     VStack(spacing: 12) {
@@ -128,10 +129,14 @@ struct ToolDiscoveryView: View {
                         let cachedTools = try await MCPClient.shared.fetchTools()
                         await MainActor.run {
                             discoveredTools = cachedTools
+                            isLoadingCached = false
                         }
                     } catch {
                         // If fetch fails, discoveredTools will remain empty
                         // and user can click Discover Tools to retry
+                        await MainActor.run {
+                            isLoadingCached = false
+                        }
                     }
                 }
             }
