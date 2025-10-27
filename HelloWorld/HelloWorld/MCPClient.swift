@@ -15,6 +15,45 @@ class MCPClient {
     
     private init() {}
     
+    // Helper to parse session endpoint from SSE bytes stream
+    private func parseSessionEndpoint(from bytes: URLSession.AsyncBytes) async throws -> String? {
+        var dataBuffer = Data()
+        var lastLineIndex = 0
+        var waitingForData = false
+        
+        for try await byte in bytes.prefix(8192) {
+            dataBuffer.append(byte)
+            
+            if let partialString = String(data: dataBuffer, encoding: .utf8) {
+                let lines = partialString.components(separatedBy: .newlines)
+                
+                if lines.count <= lastLineIndex {
+                    continue
+                }
+                
+                for index in lastLineIndex..<(lines.count - 1) {
+                    let line = lines[index]
+                    let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                    
+                    if waitingForData {
+                        if !trimmedLine.isEmpty && trimmedLine.hasPrefix("data: ") {
+                            let endpoint = String(trimmedLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                            print("✅ Session endpoint found: \(endpoint)")
+                            return endpoint
+                        }
+                    } else if trimmedLine == "event: endpoint" {
+                        waitingForData = true
+                        print("📍 Found event: endpoint, waiting for data: line...")
+                    }
+                }
+                lastLineIndex = lines.count - 1
+            }
+            
+            if dataBuffer.count > 4096 { break }
+        }
+        return nil
+    }
+    
     // Helper to get session endpoint from SSE
     private func getSessionEndpoint(sseURL: String, accessToken: String) async throws -> String? {
         guard let baseURL = URL(string: sseURL) else { 
@@ -118,14 +157,39 @@ class MCPClient {
     }
     
     // Fetch tools from MCP server via SSE transport
-    // Note: We need to keep the SSE connection open for the session to remain valid
     private func fetchToolsFromServer(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        // Strategy: Open a new SSE connection, get session endpoint, then use it immediately
-        // The session will stay valid as long as we keep the connection open briefly
-        guard let endpoint = try await getSessionEndpoint(sseURL: sseURL, accessToken: accessToken) else {
-            print("❌ Could not get session endpoint from SSE")
+        // Home Assistant MCP server: session only valid while SSE connection is open
+        // Strategy: Open SSE connection, get endpoint, make POST while connection is open
+        
+        guard let baseURL = URL(string: sseURL) else {
+            print("❌ Invalid SSE URL")
             return []
         }
+        
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "GET"
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
+        request.timeoutInterval = 30
+        
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            print("❌ Bad SSE response")
+            return []
+        }
+        
+        // Parse SSE to get session endpoint
+        guard let endpoint = try await parseSessionEndpoint(from: bytes) else {
+            print("❌ Could not parse session endpoint")
+            return []
+        }
+        
+        print("✅ Got session endpoint: \(endpoint)")
         
         // Step 3: Build full messages URL from base SSE URL
         // Extract base URL (before /sse suffix)
