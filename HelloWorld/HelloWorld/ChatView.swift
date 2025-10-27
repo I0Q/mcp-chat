@@ -18,6 +18,7 @@ struct ChatView: View {
     @State private var temporaryThinkingMessage: ChatMessage?
     @State private var mcpToolCallInfo: String?
     @State private var isRecordingVoice = false
+    @State private var showVoiceOverlay = false
     @ObservedObject private var voiceService = VoiceService.shared
     
     var body: some View {
@@ -118,6 +119,13 @@ struct ChatView: View {
         }
         .navigationTitle("Chat")
         .navigationBarTitleDisplayMode(.inline)
+        .overlay(
+            VoiceRecordingOverlay(
+                isPresented: $showVoiceOverlay,
+                isRecording: $isRecordingVoice,
+                onTapStop: stopVoiceRecording
+            )
+        )
     }
     
     private func sendMessage() {
@@ -198,7 +206,7 @@ struct ChatView: View {
     
     private func toggleVoiceRecording() {
         if isRecordingVoice {
-            stopVoiceRecording()
+            // Already handled by overlay tap
         } else {
             startVoiceRecording()
         }
@@ -216,6 +224,7 @@ struct ChatView: View {
             
             await MainActor.run {
                 isRecordingVoice = true
+                showVoiceOverlay = true
                 errorMessage = nil
             }
             
@@ -225,6 +234,7 @@ struct ChatView: View {
                 await MainActor.run {
                     errorMessage = "Failed to start recording: \(error.localizedDescription)"
                     isRecordingVoice = false
+                    showVoiceOverlay = false
                 }
             }
         }
@@ -233,10 +243,12 @@ struct ChatView: View {
     private func stopVoiceRecording() {
         guard let audioURL = voiceService.stopRecording() else {
             isRecordingVoice = false
+            showVoiceOverlay = false
             return
         }
         
         isRecordingVoice = false
+        showVoiceOverlay = false
         isLoading = true
         thinkingMessage = "Transcribing..."
         
@@ -245,17 +257,76 @@ struct ChatView: View {
                 let transcribedText = try await voiceService.transcribe(audioURL: audioURL)
                 
                 await MainActor.run {
-                    // Show transcribed text in input field
-                    inputText = transcribedText
-                    isLoading = false
-                    thinkingMessage = nil
+                    // Send transcribed text directly to LLM
+                    let userMessage = ChatMessage(role: "user", content: transcribedText)
+                    messages.append(userMessage)
+                    
+                    // Clear input and reset state
+                    inputText = ""
+                    isLoading = true
+                    errorMessage = nil
+                    thinkingMessage = "Thinking..."
+                    currentToolCall = nil
+                    thinkingTokens = nil
+                    mcpToolCallInfo = nil
                 }
                 
-                // Auto-send after a brief delay to show the text first
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                
-                await MainActor.run {
-                    sendMessage()
+                // Send to LLM
+                do {
+                    let response = try await APIService.shared.sendMessage(
+                        message: transcribedText,
+                        chatHistory: messages,
+                        onThinking: { thinkingText in
+                            Task { @MainActor in
+                                thinkingMessage = thinkingText
+                            }
+                        },
+                        onToolCall: { toolName in
+                            Task { @MainActor in
+                                currentToolCall = toolName
+                            }
+                        },
+                        onThinkingTokens: { tokens in
+                            thinkingTokens = tokens
+                        },
+                        onMCPToolInfo: { toolInfo in
+                            mcpToolCallInfo = toolInfo
+                        }
+                    )
+                    
+                    // Capture thinkingTokens from the current state before clearing
+                    let capturedThinking = thinkingTokens
+                    
+                    // Combine thinking with MCP tool info if available and setting is enabled
+                    let settings = SettingsManager.shared
+                    var fullThinking = capturedThinking
+                    if settings.showMCPInReasoning {
+                        if let toolInfo = mcpToolCallInfo, let thinking = capturedThinking {
+                            fullThinking = "\(thinking)\n\n\(toolInfo)"
+                        } else if let toolInfo = mcpToolCallInfo {
+                            fullThinking = toolInfo
+                        }
+                    }
+                    
+                    let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: fullThinking)
+                    await MainActor.run {
+                        temporaryThinkingMessage = nil
+                        messages.append(assistantMessage)
+                        isLoading = false
+                        thinkingMessage = nil
+                        currentToolCall = nil
+                        thinkingTokens = nil
+                        mcpToolCallInfo = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        errorMessage = "Error: \(error.localizedDescription)"
+                        isLoading = false
+                        thinkingMessage = nil
+                        currentToolCall = nil
+                        thinkingTokens = nil
+                        temporaryThinkingMessage = nil
+                    }
                 }
             } catch {
                 await MainActor.run {
