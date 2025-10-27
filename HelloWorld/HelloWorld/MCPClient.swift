@@ -13,19 +13,11 @@ class MCPClient {
     private init() {}
     
     // Fetch tools from MCP server via mcp-proxy
-    // The sseURL parameter should point to mcp-proxy's HTTP endpoint
+    // The sseURL parameter points to mcp-proxy's exposed endpoint
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        // Remove /sse suffix if present - mcp-proxy HTTP endpoint is at base URL
-        var cleanURL = sseURL
-        if cleanURL.hasSuffix("/sse") {
-            cleanURL = String(cleanURL.dropLast(4))
-        }
-        
-        guard let baseURL = URL(string: cleanURL) else {
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
-        
-        print("📍 Cleaned URL: \(cleanURL)")
         
         // Send tools/list JSON-RPC request
         let requestBody: [String: Any] = [
