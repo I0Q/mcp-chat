@@ -41,9 +41,12 @@ class MCPClient {
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 10
+        request.timeoutInterval = 5
         
         print("🔗 Fetching tools via mcp-proxy from: \(sseURL)")
+        print("📤 Request URL: \(request.url?.absoluteString ?? "nil")")
+        print("📤 Request method: \(request.httpMethod ?? "nil")")
+        print("📤 Request body: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
