@@ -143,7 +143,10 @@ struct ChatView: View {
                     }
                 )
                 
-                let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: thinkingTokens)
+                // Capture thinkingTokens from the current state before clearing
+                let capturedThinking = thinkingTokens
+                print("📝 Creating assistant message with thinking: \(capturedThinking ?? "nil")")
+                let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: capturedThinking)
                 await MainActor.run {
                     // Remove temporary thinking message and add final answer
                     temporaryThinkingMessage = nil
