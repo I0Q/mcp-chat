@@ -50,6 +50,7 @@ class MCPClient {
         // Parse SSE for "event: endpoint" and "data: /messages/..."
         var dataBuffer = Data()
         var lastLineIndex = 0
+        var waitingForData = false
         
         for try await byte in bytes.prefix(8192) {
             dataBuffer.append(byte)
@@ -66,35 +67,21 @@ class MCPClient {
                 }
                 
                 // Process new complete lines
-                print("📊 Processing lines \(lastLineIndex) to \(lines.count - 1)")
                 for index in lastLineIndex..<(lines.count - 1) { // -1 to skip partial last line
                     let line = lines[index]
                     let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-                    print("📝 Processing line \(index): '\(line)'")
                     
-                    // Look for "event: endpoint"
-                    if trimmedLine == "event: endpoint" {
-                        print("📍 Found event: endpoint at line \(index)")
-                        
-                        // Look for "data: ..." in subsequent lines (skip blank lines)
-                        for checkIndex in (index + 1)..<lines.count {
-                            let dataLine = lines[checkIndex]
-                            let trimmedDataLine = dataLine.trimmingCharacters(in: .whitespaces)
-                            
-                            if trimmedDataLine.isEmpty {
-                                // Skip blank lines
-                                continue
-                            } else if trimmedDataLine.hasPrefix("data: ") {
-                                let endpoint = String(trimmedDataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                                print("✅ Session endpoint: \(endpoint)")
-                                return endpoint
-                            } else {
-                                // Hit another event or unexpected line  
-                                break
-                            }
+                    if waitingForData {
+                        // We're looking for a data: line after finding event: endpoint
+                        if !trimmedLine.isEmpty && trimmedLine.hasPrefix("data: ") {
+                            let endpoint = String(trimmedLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                            print("✅ Session endpoint: \(endpoint)")
+                            return endpoint
                         }
-                        
-                        // If we got here, no data: line found yet - wait for more data
+                    } else if trimmedLine == "event: endpoint" {
+                        // Look for "data: ..." in subsequent lines
+                        waitingForData = true
+                        print("📍 Found event: endpoint, waiting for data: line...")
                     }
                 }
                 lastLineIndex = lines.count - 1  // Update to skip partial line
