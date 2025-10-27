@@ -121,6 +121,19 @@ struct ToolDiscoveryView: View {
             .onAppear {
                 // Load current selection
                 selectedTools = Set(settings.selectedTools)
+                
+                // Load cached tools by default
+                Task {
+                    do {
+                        let cachedTools = try await MCPClient.shared.fetchTools()
+                        await MainActor.run {
+                            discoveredTools = cachedTools
+                        }
+                    } catch {
+                        // If fetch fails, discoveredTools will remain empty
+                        // and user can click Discover Tools to retry
+                    }
+                }
             }
         }
     }
