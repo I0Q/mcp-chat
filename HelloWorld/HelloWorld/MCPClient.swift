@@ -124,15 +124,22 @@ class MCPClient {
             return []
         }
         
-        // Step 3: Build full messages URL
-        var messagesURLString = sseURL
-        if messagesURLString.hasSuffix("/sse") {
-            messagesURLString = String(messagesURLString.dropLast(4))
+        // Step 3: Build full messages URL from base SSE URL
+        // Extract base URL (before /sse suffix)
+        var baseURLString = sseURL
+        if baseURLString.hasSuffix("/sse") {
+            baseURLString = String(baseURLString.dropLast(4))
         }
         
-        // Remove any leading slash from endpoint
-        let cleanEndpoint = endpoint.hasPrefix("/") ? String(endpoint.dropFirst()) : endpoint
-        let fullURL = "\(messagesURLString)\(cleanEndpoint.hasPrefix("/") ? "" : "/")\(cleanEndpoint)"
+        // Extract base URL host and port, then use the endpoint path directly
+        guard let baseURL = URL(string: baseURLString) else {
+            print("❌ Invalid base URL: \(baseURLString)")
+            return []
+        }
+        
+        // The endpoint is an absolute path like /mcp_server/messages/...
+        // Construct full URL: scheme://host:port + endpoint
+        let fullURL = "\(baseURL.scheme ?? "http")://\(baseURL.host ?? ""):\(baseURL.port ?? 8123)\(endpoint.trimmingCharacters(in: .whitespaces))"
         
         guard let messagesURL = URL(string: fullURL) else {
             print("❌ Invalid messages URL: \(fullURL)")
@@ -230,14 +237,19 @@ class MCPClient {
             throw MCPError.invalidResponse
         }
         
-        // Step 2: Build full messages URL
-        var messagesURLString = sseURL
-        if messagesURLString.hasSuffix("/sse") {
-            messagesURLString = String(messagesURLString.dropLast(4))
+        // Step 2: Build full messages URL from base SSE URL
+        var baseURLString = sseURL
+        if baseURLString.hasSuffix("/sse") {
+            baseURLString = String(baseURLString.dropLast(4))
         }
         
-        let cleanEndpoint = endpoint.hasPrefix("/") ? String(endpoint.dropFirst()) : endpoint
-        let fullURL = "\(messagesURLString)\(cleanEndpoint.hasPrefix("/") ? "" : "/")\(cleanEndpoint)"
+        guard let baseURL = URL(string: baseURLString) else {
+            throw MCPError.invalidURL
+        }
+        
+        // The endpoint is an absolute path like /mcp_server/messages/...
+        // Construct full URL: scheme://host:port + endpoint
+        let fullURL = "\(baseURL.scheme ?? "http")://\(baseURL.host ?? ""):\(baseURL.port ?? 8123)\(endpoint.trimmingCharacters(in: .whitespaces))"
         
         guard let messagesURL = URL(string: fullURL) else {
             throw MCPError.invalidURL
