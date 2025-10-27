@@ -19,18 +19,29 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        // Send tools/list JSON-RPC request
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": UUID().uuidString,
-            "params": [:]
-        ]
-        
+        // Try GET request first for SSE endpoint, or POST for JSON-RPC
         var request = URLRequest(url: baseURL)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        // Check if URL ends with /sse - if so, use GET for SSE
+        if sseURL.hasSuffix("/sse") {
+            request.httpMethod = "GET"
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            print("🔍 Using GET for SSE endpoint")
+        } else {
+            // Use POST for JSON-RPC
+            let requestBody: [String: Any] = [
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "id": UUID().uuidString,
+                "params": [:]
+            ]
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            request.timeoutInterval = 5
+            print("🔍 Using POST for JSON-RPC")
+        }
         
         // Only add auth header if auth is enabled and token is provided
         let settings = SettingsManager.shared
@@ -38,13 +49,13 @@ class MCPClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 5
+        if !sseURL.hasSuffix("/sse") {
+            request.timeoutInterval = 5
+        }
         
         print("🔗 Fetching tools via mcp-proxy from: \(sseURL)")
         print("📤 Request URL: \(request.url?.absoluteString ?? "nil")")
         print("📤 Request method: \(request.httpMethod ?? "nil")")
-        print("📤 Request body: \(requestBody)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
