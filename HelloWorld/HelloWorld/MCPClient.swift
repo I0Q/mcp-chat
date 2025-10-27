@@ -33,6 +33,8 @@ class MCPClient {
         // Set a timeout
         request.timeoutInterval = 10
         
+        let json: [String: Any]
+        
         do {
             // Connect to SSE endpoint
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -54,12 +56,13 @@ class MCPClient {
             print("📦 Response data: \(responseString.prefix(500))")
             
             // Try to parse JSON-RPC response
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            guard let parsedJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 print("❌ Could not parse JSON response")
                 // Return empty tools for now
                 return []
             }
             
+            json = parsedJson
             print("📦 Response JSON: \(json)")
         } catch {
             print("❌ Connection error: \(error.localizedDescription)")
