@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		DD954DF62EAEC8E100C2E21B /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DD954DF52EAEC8E100C2E21B /* Launch Screen.storyboard */; };
-		DD954DFF2EAFBF6300C2E21B /* SwiftMCP in Frameworks */ = {isa = PBXBuildFile; productRef = DD954DFE2EAFBF6300C2E21B /* SwiftMCP */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,7 +28,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD954DFF2EAFBF6300C2E21B /* SwiftMCP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,7 +71,6 @@
 			);
 			name = HelloWorld;
 			packageProductDependencies = (
-				DD954DFE2EAFBF6300C2E21B /* SwiftMCP */,
 			);
 			productName = HelloWorld;
 			productReference = DD407FF92EAEA62C00AA422B /* HelloWorld.app */;
@@ -104,7 +101,6 @@
 			mainGroup = DD407FF02EAEA62C00AA422B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				DD954DFD2EAFBF6300C2E21B /* XCRemoteSwiftPackageReference "SwiftMCP" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DD407FFA2EAEA62C00AA422B /* Products */;
@@ -378,25 +374,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		DD954DFD2EAFBF6300C2E21B /* XCRemoteSwiftPackageReference "SwiftMCP" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Cocoanetics/SwiftMCP.git";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		DD954DFE2EAFBF6300C2E21B /* SwiftMCP */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DD954DFD2EAFBF6300C2E21B /* XCRemoteSwiftPackageReference "SwiftMCP" */;
-			productName = SwiftMCP;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DD407FF12EAEA62C00AA422B /* Project object */;
 }

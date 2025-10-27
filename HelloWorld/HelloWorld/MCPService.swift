@@ -2,7 +2,7 @@
 //  MCPService.swift
 //  HelloWorld
 //
-//  Generic MCP Service - thin wrapper around MCPClient
+//  Simplified MCP Service - direct API
 //
 
 import Foundation
@@ -21,33 +21,23 @@ class MCPService {
         }
         
         let settings = SettingsManager.shared
-        
-        guard settings.mcpEnabled,
-              !settings.mcpSSEURL.isEmpty else {
-            print("⚠️ MCP not configured, returning empty tools")
+        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
             return []
         }
         
-        do {
-            let tools = try await MCPClient.shared.fetchTools(
-                sseURL: settings.mcpSSEURL,
-                accessToken: settings.mcpAccessToken
-            )
-            
-            cachedTools = tools
-            return tools
-        } catch {
-            print("⚠️ Could not fetch tools from MCP server: \(error), returning empty tools")
-            return []
-        }
+        let tools = try await MCPClient.shared.fetchTools(
+            sseURL: settings.mcpSSEURL,
+            accessToken: settings.mcpAccessToken
+        )
+        
+        cachedTools = tools
+        return tools
     }
     
     // Call a tool on the MCP server
     func callTool(name: String, arguments: [String: Any]) async throws -> String {
         let settings = SettingsManager.shared
-        
-        guard settings.mcpEnabled,
-              !settings.mcpSSEURL.isEmpty else {
+        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
             throw MCPError.notConfigured
         }
         
@@ -58,21 +48,18 @@ class MCPService {
             accessToken: settings.mcpAccessToken
         )
     }
+}
+
+enum MCPError: LocalizedError {
+    case notConfigured
+    case invalidResponse
+    case httpError(Int)
     
-    enum MCPError: LocalizedError {
-        case notConfigured
-        case invalidResponse
-        case httpError(Int)
-        
-        var errorDescription: String? {
-            switch self {
-            case .notConfigured:
-                return "MCP not configured"
-            case .invalidResponse:
-                return "Invalid response from MCP server"
-            case .httpError(let code):
-                return "HTTP Error: \(code)"
-            }
+    var errorDescription: String? {
+        switch self {
+        case .notConfigured: return "MCP not configured"
+        case .invalidResponse: return "Invalid response from MCP server"
+        case .httpError(let code): return "HTTP Error: \(code)"
         }
     }
 }
@@ -83,7 +70,6 @@ struct MCPTool: Codable {
     let description: String?
     let inputSchema: [String: Any]?
     
-    // Custom encoding/decoding for inputSchema as Any
     enum CodingKeys: String, CodingKey {
         case name, title, description, inputSchema
     }
@@ -94,7 +80,6 @@ struct MCPTool: Codable {
         title = try container.decodeIfPresent(String.self, forKey: .title)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         
-        // inputSchema can be Any type, decode as JSON
         if let schemaData = try? container.decode(Data.self, forKey: .inputSchema) {
             inputSchema = try? JSONSerialization.jsonObject(with: schemaData) as? [String: Any]
         } else {
