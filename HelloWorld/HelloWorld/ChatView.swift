@@ -136,11 +136,13 @@ struct ChatView: View {
                     onThinkingTokens: { tokens in
                         Task { @MainActor in
                             thinkingTokens = tokens
-                            // Update temporary message with thinking tokens
-                            temporaryThinkingMessage = ChatMessage(role: "assistant", content: "Thinking...\n\n\(tokens)")
+                            // Add thinking message to chat
+                            let thinkingMsg = ChatMessage(role: "assistant", content: "🤔 Thinking...\n\n\(tokens)")
+                            temporaryThinkingMessage = thinkingMsg
                         }
                     }
                 )
+                
                 let assistantMessage = ChatMessage(role: "assistant", content: response)
                 await MainActor.run {
                     // Remove temporary thinking message and add final answer
