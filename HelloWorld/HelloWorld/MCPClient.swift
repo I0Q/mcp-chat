@@ -19,38 +19,18 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        // Try GET request first for SSE endpoint, or POST for JSON-RPC
+        // Try GET request first for SSE endpoint
         var request = URLRequest(url: baseURL)
+        request.httpMethod = "GET"
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 10
         
-        // Check if URL ends with /sse - if so, use GET for SSE
-        if sseURL.hasSuffix("/sse") {
-            request.httpMethod = "GET"
-            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-            print("🔍 Using GET for SSE endpoint")
-        } else {
-            // Use POST for JSON-RPC
-            let requestBody: [String: Any] = [
-                "jsonrpc": "2.0",
-                "method": "tools/list",
-                "id": UUID().uuidString,
-                "params": [:]
-            ]
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-            request.timeoutInterval = 5
-            print("🔍 Using POST for JSON-RPC")
-        }
+        print("🔍 Using GET for SSE endpoint: \(sseURL)")
         
         // Only add auth header if auth is enabled and token is provided
         let settings = SettingsManager.shared
         if settings.mcpUseAuth && !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        if !sseURL.hasSuffix("/sse") {
-            request.timeoutInterval = 5
         }
         
         print("🔗 Fetching tools via mcp-proxy from: \(sseURL)")
