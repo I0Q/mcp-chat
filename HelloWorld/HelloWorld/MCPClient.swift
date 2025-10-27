@@ -67,36 +67,35 @@ class MCPClient {
                 
                 // Process new complete lines
                 for index in lastLineIndex..<(lines.count - 1) { // -1 to skip partial last line
-                        let line = lines[index]
-                        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                    let line = lines[index]
+                    let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                    
+                    // Look for "event: endpoint"
+                    if trimmedLine == "event: endpoint" {
+                        print("📍 Found event: endpoint at line \(index)")
                         
-                        // Look for "event: endpoint"
-                        if trimmedLine == "event: endpoint" {
-                            print("📍 Found event: endpoint at line \(index)")
+                        // Look for "data: ..." in subsequent lines (skip blank lines)
+                        for checkIndex in (index + 1)..<lines.count {
+                            let dataLine = lines[checkIndex]
+                            let trimmedDataLine = dataLine.trimmingCharacters(in: .whitespaces)
                             
-                            // Look for "data: ..." in subsequent lines (skip blank lines)
-                            for checkIndex in (index + 1)..<lines.count {
-                                let dataLine = lines[checkIndex]
-                                let trimmedDataLine = dataLine.trimmingCharacters(in: .whitespaces)
-                                
-                                if trimmedDataLine.isEmpty {
-                                    // Skip blank lines
-                                    continue
-                                } else if trimmedDataLine.hasPrefix("data: ") {
-                                    let endpoint = String(trimmedDataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                                    print("✅ Session endpoint: \(endpoint)")
-                                    return endpoint
-                                } else {
-                                    // Hit another event or unexpected line  
-                                    break
-                                }
+                            if trimmedDataLine.isEmpty {
+                                // Skip blank lines
+                                continue
+                            } else if trimmedDataLine.hasPrefix("data: ") {
+                                let endpoint = String(trimmedDataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                                print("✅ Session endpoint: \(endpoint)")
+                                return endpoint
+                            } else {
+                                // Hit another event or unexpected line  
+                                break
                             }
-                            
-                            // If we got here, no data: line found yet - wait for more data
                         }
+                        
+                        // If we got here, no data: line found yet - wait for more data
                     }
-                    lastLineIndex = lines.count - 1  // Update to skip partial line
                 }
+                lastLineIndex = lines.count - 1  // Update to skip partial line
             }
             
             if dataBuffer.count > 4096 { 
