@@ -148,12 +148,15 @@ struct ChatView: View {
                 let capturedThinking = thinkingTokens
                 print("📝 Creating assistant message with thinking: \(capturedThinking ?? "nil")")
                 
-                // Combine thinking with MCP tool info if available
+                // Combine thinking with MCP tool info if available and setting is enabled
+                let settings = SettingsManager.shared
                 var fullThinking = capturedThinking
-                if let toolInfo = mcpToolCallInfo, let thinking = capturedThinking {
-                    fullThinking = "\(thinking)\n\n\(toolInfo)"
-                } else if let toolInfo = mcpToolCallInfo {
-                    fullThinking = toolInfo
+                if settings.showMCPInReasoning {
+                    if let toolInfo = mcpToolCallInfo, let thinking = capturedThinking {
+                        fullThinking = "\(thinking)\n\n\(toolInfo)"
+                    } else if let toolInfo = mcpToolCallInfo {
+                        fullThinking = toolInfo
+                    }
                 }
                 
                 let assistantMessage = ChatMessage(role: "assistant", content: response, thinking: fullThinking)

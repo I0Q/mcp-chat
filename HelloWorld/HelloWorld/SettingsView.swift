@@ -65,6 +65,8 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    
+                    Toggle("Show MCP Tools in Reasoning", isOn: $settings.showMCPInReasoning)
                 }
             }
             
