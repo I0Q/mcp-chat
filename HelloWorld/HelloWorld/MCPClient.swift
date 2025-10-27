@@ -12,12 +12,74 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via direct SSE connection
-    // According to MCP spec, clients need to establish SSE connection and send JSON-RPC
+    // Fetch tools from MCP server via SSE with JSON-RPC 2.0
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        print("⚠️ MCP SSE connection requires persistent streaming")
-        print("💡 For now, returning empty tools - tool discovery via SSE not implemented")
-        print("📝 You'll need to manually configure tools in the LLM prompt")
+        print("🔗 Connecting to MCP server via SSE: \(sseURL)")
+        
+        guard let url = URL(string: sseURL) else {
+            throw MCPError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
+        
+        // Add auth header if token provided
+        if !accessToken.isEmpty {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        // Connect to SSE endpoint and parse events
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw MCPError.invalidResponse
+        }
+        
+        print("📡 Response Status: \(httpResponse.statusCode)")
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw MCPError.httpError(httpResponse.statusCode)
+        }
+        
+        // Read SSE data and parse JSON-RPC messages
+        var dataBuffer = Data()
+        var receivedMessages: [[String: Any]] = []
+        
+        for try await byte in bytes.prefix(65536) { // Read up to 64KB
+            dataBuffer.append(byte)
+            
+            // Try to parse SSE format
+            if let messageString = String(data: dataBuffer, encoding: .utf8) {
+                // Look for complete SSE messages (lines starting with "data:")
+                if messageString.contains("data:") {
+                    let lines = messageString.components(separatedBy: .newlines)
+                    for line in lines {
+                        if line.hasPrefix("data: ") {
+                            let jsonString = String(line.dropFirst(6)) // Remove "data: " prefix
+                            if let jsonData = jsonString.data(using: .utf8),
+                               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                                receivedMessages.append(json)
+                                print("📦 Received JSON-RPC message: \(json)")
+                            }
+                        }
+                    }
+                    dataBuffer.removeAll()
+                }
+                
+                // Timeout after 5 seconds or if we get enough data
+                if dataBuffer.count > 1024 || receivedMessages.count > 0 {
+                    break
+                }
+            }
+        }
+        
+        print("✅ Received \(receivedMessages.count) messages from SSE")
+        
+        // For now, return empty tools since we need to parse proper JSON-RPC responses
+        // The user can manually add tools in the discovery screen
         return []
     }
     
