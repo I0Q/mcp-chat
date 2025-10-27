@@ -12,75 +12,138 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server via SSE with JSON-RPC 2.0
+    // Fetch tools from MCP server via SSE - get session endpoint then send JSON-RPC
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         print("🔗 Connecting to MCP server via SSE: \(sseURL)")
         
-        guard let url = URL(string: sseURL) else {
+        guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        var request = URLRequest(url: url)
+        // Step 1: Connect to SSE endpoint to get session endpoint
+        var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 10
         
-        // Add auth header if token provided
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        // Connect to SSE endpoint and parse events
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
         
-        print("📡 Response Status: \(httpResponse.statusCode)")
+        print("📡 SSE Response Status: \(httpResponse.statusCode)")
         
         guard (200...299).contains(httpResponse.statusCode) else {
             throw MCPError.httpError(httpResponse.statusCode)
         }
         
-        // Read SSE data and parse JSON-RPC messages
+        // Step 2: Parse SSE to get session endpoint
         var dataBuffer = Data()
-        var receivedMessages: [[String: Any]] = []
+        var sessionEndpoint: String?
         
-        for try await byte in bytes.prefix(65536) { // Read up to 64KB
+        for try await byte in bytes.prefix(8192) { // Read up to 8KB
             dataBuffer.append(byte)
             
-            // Try to parse SSE format
             if let messageString = String(data: dataBuffer, encoding: .utf8) {
-                // Look for complete SSE messages (lines starting with "data:")
-                if messageString.contains("data:") {
-                    let lines = messageString.components(separatedBy: .newlines)
-                    for line in lines {
-                        if line.hasPrefix("data: ") {
-                            let jsonString = String(line.dropFirst(6)) // Remove "data: " prefix
-                            if let jsonData = jsonString.data(using: .utf8),
-                               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                                receivedMessages.append(json)
-                                print("📦 Received JSON-RPC message: \(json)")
-                            }
+                // Look for "event: endpoint" and "data: /messages/..."
+                let lines = messageString.components(separatedBy: .newlines)
+                for (index, line) in lines.enumerated() {
+                    if line == "event: endpoint" && index + 1 < lines.count {
+                        let dataLine = lines[index + 1]
+                        if dataLine.hasPrefix("data: ") {
+                            sessionEndpoint = String(dataLine.dropFirst(6))
+                            print("📍 Session endpoint: \(sessionEndpoint ?? "nil")")
+                            break
                         }
                     }
-                    dataBuffer.removeAll()
                 }
                 
-                // Timeout after 5 seconds or if we get enough data
-                if dataBuffer.count > 1024 || receivedMessages.count > 0 {
+                if sessionEndpoint != nil {
+                    break
+                }
+                
+                if dataBuffer.count > 4096 {
                     break
                 }
             }
         }
         
-        print("✅ Received \(receivedMessages.count) messages from SSE")
+        guard let endpoint = sessionEndpoint else {
+            print("❌ Could not get session endpoint from SSE")
+            return []
+        }
         
-        // For now, return empty tools since we need to parse proper JSON-RPC responses
-        // The user can manually add tools in the discovery screen
-        return []
+        // Step 3: Build full messages URL
+        var messagesURLString = sseURL
+        if messagesURLString.hasSuffix("/sse") {
+            messagesURLString = String(messagesURLString.dropLast(4))
+        }
+        
+        // Remove any leading slash from endpoint
+        let cleanEndpoint = endpoint.hasPrefix("/") ? String(endpoint.dropFirst()) : endpoint
+        let fullURL = "\(messagesURLString)\(cleanEndpoint.hasPrefix("/") ? "" : "/")\(cleanEndpoint)"
+        
+        guard let messagesURL = URL(string: fullURL) else {
+            print("❌ Invalid messages URL: \(fullURL)")
+            return []
+        }
+        
+        print("🔗 Sending tools/list to: \(fullURL)")
+        
+        // Step 4: Send JSON-RPC request to messages endpoint
+        let requestBody: [String: Any] = [
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "id": UUID().uuidString,
+            "params": [:]
+        ]
+        
+        var messagesRequest = URLRequest(url: messagesURL)
+        messagesRequest.httpMethod = "POST"
+        messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        messagesRequest.timeoutInterval = 10
+        
+        if !accessToken.isEmpty {
+            messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        messagesRequest.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        
+        let (data, messagesResponse) = try await URLSession.shared.data(for: messagesRequest)
+        
+        guard let httpMessagesResponse = messagesResponse as? HTTPURLResponse else {
+            throw MCPError.invalidResponse
+        }
+        
+        print("📡 Messages Response Status: \(httpMessagesResponse.statusCode)")
+        
+        guard (200...299).contains(httpMessagesResponse.statusCode) else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
+            print("❌ Error: \(errorBody)")
+            throw MCPError.httpError(httpMessagesResponse.statusCode)
+        }
+        
+        // Parse tools from response
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Could not parse JSON response")
+            return []
+        }
+        
+        print("📦 Response: \(json)")
+        
+        var tools: [MCPTool] = []
+        if let result = json["result"] as? [String: Any],
+           let toolsArray = result["tools"] as? [[String: Any]] {
+            tools = parseTools(toolsArray)
+        }
+        
+        print("✅ Fetched \(tools.count) tools")
+        return tools
     }
     
     private func parseTools(_ toolsArray: [[String: Any]]) -> [MCPTool] {
