@@ -61,25 +61,32 @@ class MCPClient {
                 // Only process new lines since last check
                 if lines.count > previousEndIndex {
                     for index in previousEndIndex..<lines.count {
-                        let line = lines[index]
+                        let line = lines[index].trimmingCharacters(in: .whitespaces)
                         
                         // Look for "event: endpoint"
-                        if line.hasPrefix("event: endpoint") {
+                        if line == "event: endpoint" {
                             print("📍 Found event: endpoint")
                             
-                            // Check next line for "data: ..."
-                            if index + 1 < lines.count {
-                                let dataLine = lines[index + 1]
-                                if dataLine.hasPrefix("data: ") {
+                            // Look for "data: ..." in subsequent lines (skip blank lines)
+                            for checkIndex in (index + 1)..<lines.count {
+                                let dataLine = lines[checkIndex].trimmingCharacters(in: .whitespaces)
+                                
+                                if dataLine.isEmpty {
+                                    // Skip blank lines
+                                    continue
+                                } else if dataLine.hasPrefix("data: ") {
                                     let endpoint = String(dataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
                                     print("✅ Session endpoint: \(endpoint)")
                                     return endpoint
                                 } else {
-                                    print("⚠️ Next line after event: endpoint is not 'data: ...': \(dataLine)")
+                                    // Hit another event or unexpected line
+                                    print("⚠️ Found non-data line after event: endpoint: \(dataLine)")
+                                    break
                                 }
-                            } else {
-                                print("⚠️ No line after event: endpoint yet, waiting...")
                             }
+                            
+                            // If we got here, no data: line found yet
+                            print("⚠️ No data: line after event: endpoint yet, waiting...")
                         }
                     }
                     previousEndIndex = lines.count - 1
