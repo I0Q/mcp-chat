@@ -246,12 +246,22 @@ class APIService {
         
         let result = try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
         
+        // Try to parse and format the result as JSON
+        var formattedResult = result
+        if let resultData = result.data(using: .utf8),
+           let jsonObj = try? JSONSerialization.jsonObject(with: resultData),
+           let prettyJSONData = try? JSONSerialization.data(withJSONObject: jsonObj, options: .prettyPrinted),
+           let prettyJSONString = String(data: prettyJSONData, encoding: .utf8) {
+            formattedResult = prettyJSONString
+        }
+        
         // Format the full tool info for display in UI
         let fullToolInfo = """
         MCP Tool Call:
         \(toolCallString)
         
-        Result: \(result)
+        Result:
+        \(formattedResult)
         """
         
         // Store for the callback
