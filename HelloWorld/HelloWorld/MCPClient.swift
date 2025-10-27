@@ -49,20 +49,52 @@ class MCPClient {
         
         // Parse SSE for "event: endpoint" and "data: /messages/..."
         var dataBuffer = Data()
+        var previousEndIndex = 0
+        
         for try await byte in bytes.prefix(8192) {
             dataBuffer.append(byte)
-            if let messageString = String(data: dataBuffer, encoding: .utf8) {
-                let lines = messageString.components(separatedBy: .newlines)
-                for (index, line) in lines.enumerated() {
-                    if line == "event: endpoint" && index + 1 < lines.count {
-                        let dataLine = lines[index + 1]
-                        if dataLine.hasPrefix("data: ") {
-                            return String(dataLine.dropFirst(6))
+            
+            // Try to parse whenever we have new data
+            if let partialString = String(data: dataBuffer, encoding: .utf8) {
+                let lines = partialString.components(separatedBy: .newlines)
+                
+                // Only process new lines since last check
+                if lines.count > previousEndIndex {
+                    for index in previousEndIndex..<lines.count {
+                        let line = lines[index]
+                        
+                        // Look for "event: endpoint"
+                        if line.hasPrefix("event: endpoint") {
+                            print("📍 Found event: endpoint")
+                            
+                            // Check next line for "data: ..."
+                            if index + 1 < lines.count {
+                                let dataLine = lines[index + 1]
+                                if dataLine.hasPrefix("data: ") {
+                                    let endpoint = String(dataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    print("✅ Session endpoint: \(endpoint)")
+                                    return endpoint
+                                } else {
+                                    print("⚠️ Next line after event: endpoint is not 'data: ...': \(dataLine)")
+                                }
+                            } else {
+                                print("⚠️ No line after event: endpoint yet, waiting...")
+                            }
                         }
                     }
+                    previousEndIndex = lines.count - 1
                 }
             }
-            if dataBuffer.count > 4096 { break }
+            
+            if dataBuffer.count > 4096 { 
+                print("⚠️ Buffer size exceeded 4KB, stopping")
+                break 
+            }
+        }
+        
+        print("❌ Could not find session endpoint in SSE stream")
+        if let lastString = String(data: dataBuffer, encoding: .utf8) {
+            print("📄 Last received data: \(lastString.prefix(200))")
         }
         return nil
         } catch {
