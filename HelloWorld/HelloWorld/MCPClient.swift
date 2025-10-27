@@ -153,15 +153,17 @@ class MCPClient {
         return toolsArray.compactMap { toolDict -> MCPTool? in
             guard let name = toolDict["name"] as? String else { return nil }
             
-            var description: String? = nil
-            if let desc = toolDict["description"] as? String {
-                description = desc
-            } else if let inputSchema = toolDict["inputSchema"] as? [String: Any],
-                      let desc = inputSchema["description"] as? String {
-                description = desc
-            }
+            // Per MCP spec: name (required), title (optional), description (required)
+            let title = toolDict["title"] as? String
+            let description = toolDict["description"] as? String
+            let inputSchema = toolDict["inputSchema"] as? [String: Any]
             
-            return MCPTool(name: name, description: description)
+            return MCPTool(
+                name: name,
+                title: title,
+                description: description,
+                inputSchema: inputSchema
+            )
         }
     }
     

@@ -59,7 +59,8 @@ struct ToolDiscoveryView: View {
                                     .foregroundColor(selectedTools.contains(tool.name) ? .blue : .gray)
                                 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(tool.name)
+                                    // Show title if available, otherwise use name
+                                    Text(tool.title ?? tool.name)
                                         .font(.headline)
                                     
                                     if let description = tool.description {
