@@ -134,9 +134,8 @@ struct ChatView: View {
                         }
                     },
                     onThinkingTokens: { tokens in
-                        Task { @MainActor in
-                            thinkingTokens = tokens
-                        }
+                        // Set thinking tokens synchronously so they're available when we capture
+                        thinkingTokens = tokens
                     }
                 )
                 
