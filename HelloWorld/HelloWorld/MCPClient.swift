@@ -61,26 +61,36 @@ class MCPClient {
                 // Only process new lines since last check
                 if lines.count > previousEndIndex {
                     for index in previousEndIndex..<lines.count {
-                        let line = lines[index].trimmingCharacters(in: .whitespaces)
+                        let line = lines[index]
+                        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+                        
+                        // Debug: print lines being processed
+                        if !trimmedLine.isEmpty {
+                            print("📝 Line \(index): '\(line)'")
+                        }
                         
                         // Look for "event: endpoint"
-                        if line == "event: endpoint" {
-                            print("📍 Found event: endpoint")
+                        if trimmedLine == "event: endpoint" {
+                            print("📍 Found event: endpoint at line \(index)")
                             
                             // Look for "data: ..." in subsequent lines (skip blank lines)
                             for checkIndex in (index + 1)..<lines.count {
-                                let dataLine = lines[checkIndex].trimmingCharacters(in: .whitespaces)
+                                let dataLine = lines[checkIndex]
+                                let trimmedDataLine = dataLine.trimmingCharacters(in: .whitespaces)
                                 
-                                if dataLine.isEmpty {
+                                print("🔍 Checking line \(checkIndex): '\(dataLine)'")
+                                
+                                if trimmedDataLine.isEmpty {
                                     // Skip blank lines
+                                    print("   -> Empty line, skipping")
                                     continue
-                                } else if dataLine.hasPrefix("data: ") {
-                                    let endpoint = String(dataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                                } else if trimmedDataLine.hasPrefix("data: ") {
+                                    let endpoint = String(trimmedDataLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
                                     print("✅ Session endpoint: \(endpoint)")
                                     return endpoint
                                 } else {
                                     // Hit another event or unexpected line
-                                    print("⚠️ Found non-data line after event: endpoint: \(dataLine)")
+                                    print("⚠️ Found non-data line: '\(trimmedDataLine)'")
                                     break
                                 }
                             }
