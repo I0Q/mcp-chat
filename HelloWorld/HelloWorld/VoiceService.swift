@@ -78,7 +78,7 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
         return audioFileURL
     }
     
-    func transcribe(audioURL: URL) async throws -> String {
+    func transcribe(audioURL: URL, onPartialTranscript: ((String) -> Void)? = nil) async throws -> String {
         let settings = await SettingsManager.shared
         guard let baseURL = await URL(string: settings.voiceServiceURL) else {
             throw VoiceError.invalidURL
