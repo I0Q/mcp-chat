@@ -193,7 +193,7 @@ class MCPClient {
             "method": "tools/call",
             "id": UUID().uuidString,
             "params": [
-                "name": toolName,
+                "name": name,
                 "arguments": arguments
             ]
         ]
