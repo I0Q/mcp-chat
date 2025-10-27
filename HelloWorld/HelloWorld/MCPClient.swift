@@ -19,6 +19,7 @@ class MCPClient {
         }
         
         print("🔗 Fetching tools from: \(sseURL)")
+        print("📍 Full URL: \(url.absoluteString)")
         
         // Send JSON-RPC request in body
         let requestBody: [String: Any] = [
