@@ -12,35 +12,26 @@ class MCPClient {
     
     private init() {}
     
-    // Fetch tools from MCP server
+    // Fetch tools from MCP server via SSE
     func fetchTools(sseURL: String, accessToken: String) async throws -> [MCPTool] {
         guard let url = URL(string: sseURL) else {
             throw MCPError.invalidURL
         }
         
-        print("🔗 Fetching tools from: \(sseURL)")
-        print("📍 Full URL: \(url.absoluteString)")
+        print("🔗 Connecting to SSE endpoint: \(sseURL)")
         
-        // Send JSON-RPC request in body
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": UUID().uuidString,
-            "params": [:]
-        ]
-        
+        // For SSE, we need to establish a connection and send JSON-RPC via messages
+        // Home Assistant MCP uses SSE transport
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpMethod = "GET"
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         
         // Add auth header if token provided
         if !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
+        // Connect to SSE endpoint
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
