@@ -49,14 +49,6 @@ struct SettingsView: View {
                     SecureField("Access Token", text: $settings.mcpAccessToken)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
-                    
-                    TextField("mcp-proxy URL (optional)", text: $settings.mcpProxyURL)
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-                    
-                    Text("Use mcp-proxy to connect to SSE-only MCP servers")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
             }
             
