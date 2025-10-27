@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import Combine
 
 class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
     static let shared = VoiceService()
@@ -78,8 +79,8 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
     }
     
     func transcribe(audioURL: URL) async throws -> String {
-        let settings = SettingsManager.shared
-        guard let serverURL = URL(string: settings.voiceServiceURL) else {
+        let settings = await SettingsManager.shared
+        guard let serverURL = await URL(string: settings.voiceServiceURL) else {
             throw VoiceError.invalidURL
         }
         
@@ -101,17 +102,22 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
         body.append(audioData)
         body.append("\r\n".data(using: .utf8)!)
         
-        // Add model parameter for OpenAI Whisper
+        // Add task parameter for transcription
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"model\"\r\n\r\n".data(using: .utf8)!)
-        body.append("whisper-1\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"task\"\r\n\r\n".data(using: .utf8)!)
+        body.append("transcribe\r\n".data(using: .utf8)!)
+        
+        // Add response format
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\n".data(using: .utf8)!)
+        body.append("json\r\n".data(using: .utf8)!)
         
         // End boundary
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         request.httpBody = body
         
-        print("📤 Sending audio to \(settings.voiceServiceURL)")
+        print("📤 Sending audio to \(await settings.voiceServiceURL)")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
@@ -127,14 +133,31 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
             throw VoiceError.httpError(httpResponse.statusCode)
         }
         
-        // Parse JSON response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let text = json["text"] as? String else {
+        // Parse JSON response - the server returns: {"text": "transcribed text"}
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Failed to parse JSON. Response: \(String(data: data, encoding: .utf8) ?? "unknown")")
             throw VoiceError.decodingError
         }
         
-        print("✅ Transcription: \(text)")
-        return text
+        // Try different possible response formats
+        var text: String?
+        
+        if let transcribedText = json["text"] as? String {
+            text = transcribedText
+        } else if let segments = json["segments"] as? [[String: Any]] {
+            // If response has segments, extract all text
+            text = segments.compactMap { $0["text"] as? String }.joined(separator: " ")
+        } else if let result = json["result"] as? String {
+            text = result
+        }
+        
+        guard let finalText = text, !finalText.isEmpty else {
+            print("❌ No text found in response: \(json)")
+            throw VoiceError.decodingError
+        }
+        
+        print("✅ Transcription: \(finalText)")
+        return finalText
     }
     
     enum VoiceError: LocalizedError {
