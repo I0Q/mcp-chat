@@ -17,6 +17,8 @@ struct ChatView: View {
     @State private var thinkingTokens: String?
     @State private var temporaryThinkingMessage: ChatMessage?
     @State private var mcpToolCallInfo: String?
+    @State private var isRecordingVoice = false
+    @State private var voiceService = VoiceService.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -82,6 +84,17 @@ struct ChatView: View {
                     .cornerRadius(24)
                     .disabled(isLoading)
                     .onSubmit(sendMessage)
+                
+                // Voice button (if enabled)
+                if SettingsManager.shared.voiceEnabled {
+                    Button(action: toggleVoiceRecording) {
+                        Image(systemName: isRecordingVoice ? "mic.fill" : "mic.slash")
+                            .font(.title2)
+                            .foregroundColor(isRecordingVoice ? .red : .blue)
+                            .padding(8)
+                    }
+                    .disabled(isLoading)
+                }
                 
                 Button(action: sendMessage) {
                     if isLoading {
@@ -178,6 +191,72 @@ struct ChatView: View {
                     currentToolCall = nil
                     thinkingTokens = nil
                     temporaryThinkingMessage = nil
+                }
+            }
+        }
+    }
+    
+    private func toggleVoiceRecording() {
+        if isRecordingVoice {
+            stopVoiceRecording()
+        } else {
+            startVoiceRecording()
+        }
+    }
+    
+    private func startVoiceRecording() {
+        Task {
+            let hasPermission = await voiceService.requestPermissions()
+            guard hasPermission else {
+                await MainActor.run {
+                    errorMessage = "Microphone permission denied. Please enable in Settings."
+                }
+                return
+            }
+            
+            await MainActor.run {
+                isRecordingVoice = true
+                errorMessage = nil
+            }
+            
+            do {
+                try voiceService.startRecording()
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to start recording: \(error.localizedDescription)"
+                    isRecordingVoice = false
+                }
+            }
+        }
+    }
+    
+    private func stopVoiceRecording() {
+        guard let audioURL = voiceService.stopRecording() else {
+            isRecordingVoice = false
+            return
+        }
+        
+        isRecordingVoice = false
+        isLoading = true
+        thinkingMessage = "Transcribing..."
+        
+        Task {
+            do {
+                let transcribedText = try await voiceService.transcribe(audioURL: audioURL)
+                
+                await MainActor.run {
+                    inputText = transcribedText
+                    isLoading = false
+                    thinkingMessage = nil
+                }
+                
+                // Auto-send the transcribed message
+                sendMessage()
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Transcription failed: \(error.localizedDescription)"
+                    isLoading = false
+                    thinkingMessage = nil
                 }
             }
         }
