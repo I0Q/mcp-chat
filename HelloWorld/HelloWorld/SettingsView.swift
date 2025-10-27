@@ -42,17 +42,17 @@ struct SettingsView: View {
                     TextField("Server Name", text: $settings.mcpServerName)
                         .autocapitalization(.none)
                     
-                    TextField("SSE URL", text: $settings.mcpSSEURL)
+                    TextField("MCP Proxy URL", text: $settings.mcpSSEURL)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
-                    SecureField("Access Token (optional)", text: $settings.mcpAccessToken)
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
+                    Toggle("Use Authentication", isOn: $settings.mcpUseAuth)
                     
-                    Text("Not needed when using mcp-proxy")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if settings.mcpUseAuth {
+                        SecureField("Access Token", text: $settings.mcpAccessToken)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                    }
                 }
             }
             

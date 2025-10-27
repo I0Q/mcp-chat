@@ -59,6 +59,12 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var mcpUseAuth: Bool {
+        didSet {
+            UserDefaults.standard.set(mcpUseAuth, forKey: "mcpUseAuth")
+        }
+    }
+    
     private init() {
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://192.168.1.232:1234"
         self.mcpEnabled = UserDefaults.standard.bool(forKey: "mcpEnabled")
@@ -78,6 +84,7 @@ class SettingsManager: ObservableObject {
         if UserDefaults.standard.string(forKey: "mcpAccessToken") == nil {
             UserDefaults.standard.set("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwZjA1M2JjZWRjNzk0NTlmOGZjMTQ3ZWYwZDVhZWM4MCIsImlhdCI6MTc2MTQ5NDQwNiwiZXhwIjoyMDc2ODU0NDA2fQ.PSwfpbey4BXe2TmScH5PxVMhgOVsjVqU8sdx5twQjZU", forKey: "mcpAccessToken")
         }
+        self.mcpUseAuth = UserDefaults.standard.bool(forKey: "mcpUseAuth")
         
         self.thinkingEffort = UserDefaults.standard.string(forKey: "thinkingEffort") ?? "medium"
         self.thinkingEnabled = UserDefaults.standard.bool(forKey: "thinkingEnabled")

@@ -32,7 +32,9 @@ class MCPClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        if !accessToken.isEmpty {
+        // Only add auth header if auth is enabled and token is provided
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
