@@ -12,8 +12,28 @@ class MCPClient {
     static let shared = MCPClient()
     
     private var cachedTools: [MCPTool] = []
+    private var lastMCPConfig: String = "" // Track when settings change
     
     private init() {}
+    
+    // Clear the tools cache (call when MCP settings change)
+    func clearCache() {
+        cachedTools.removeAll()
+        lastMCPConfig = ""
+        print("🗑️ MCP tools cache cleared")
+    }
+    
+    // Force refresh tools from server
+    func refreshTools() async throws -> [MCPTool] {
+        cachedTools.removeAll()
+        return try await fetchTools()
+    }
+    
+    // Generate a cache key from current MCP settings
+    private func getCurrentConfigKey() -> String {
+        let settings = SettingsManager.shared
+        return "\(settings.mcpSSEURL)|\(settings.mcpAccessToken)|\(settings.mcpEnabled)"
+    }
     
     // Helper to parse session endpoint from SSE bytes stream
     private func parseSessionEndpoint(from bytes: URLSession.AsyncBytes) async throws -> String? {
@@ -145,14 +165,31 @@ class MCPClient {
         }
     }
     
-    // Fetch tools from MCP server (with caching, pulls from settings)
+    // Fetch tools from MCP server (with smart caching)
     func fetchTools() async throws -> [MCPTool] {
-        if !cachedTools.isEmpty { return cachedTools }
-        
         let settings = SettingsManager.shared
-        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else { return [] }
+        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
+            cachedTools = []
+            return []
+        }
         
+        // Check if config changed - clear cache if it did
+        let currentConfig = getCurrentConfigKey()
+        if currentConfig != lastMCPConfig {
+            print("🔄 MCP configuration changed, clearing cache")
+            cachedTools.removeAll()
+        }
+        
+        // Return cached tools if available
+        if !cachedTools.isEmpty {
+            print("📦 Returning \(cachedTools.count) cached tools")
+            return cachedTools
+        }
+        
+        // Fetch fresh tools
+        print("🔄 Fetching tools from MCP server...")
         cachedTools = try await fetchToolsFromServer(sseURL: settings.mcpSSEURL, accessToken: settings.mcpAccessToken)
+        lastMCPConfig = currentConfig
         return cachedTools
     }
     
@@ -183,7 +220,7 @@ class MCPClient {
             return []
         }
         
-        // Parse SSE to get session endpoint
+        // Parse the endpoint from the SSE stream
         guard let endpoint = try await parseSessionEndpoint(from: bytes) else {
             print("❌ Could not parse session endpoint")
             return []
@@ -218,54 +255,191 @@ class MCPClient {
         print("   Base URL: \(baseURLString)")
         print("   Endpoint: \(trimmedEndpoint)")
         
-        // Step 4: Send JSON-RPC request to messages endpoint
-        let requestBody: [String: Any] = [
+        // Step 4: Initialize MCP session
+        let initID = UUID().uuidString
+        let initJSON = """
+        {
             "jsonrpc": "2.0",
-            "method": "tools/list",
-            "id": UUID().uuidString,
-            "params": [:]
-        ]
+            "method": "initialize",
+            "id": "\(initID)",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "MCP iOS Client",
+                    "version": "1.0"
+                }
+            }
+        }
+        """
         
-        var messagesRequest = URLRequest(url: messagesURL)
-        messagesRequest.httpMethod = "POST"
-        messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // Per MCP spec, include both content types in Accept header
-        messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        messagesRequest.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
-        messagesRequest.timeoutInterval = 10
+        var initRequest = URLRequest(url: messagesURL)
+        initRequest.httpMethod = "POST"
+        initRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        initRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        initRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        initRequest.timeoutInterval = 30
         
-        // Use settings from earlier in function
         if settings.mcpUseAuth && !accessToken.isEmpty {
-            messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            initRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
-        messagesRequest.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        initRequest.httpBody = initJSON.data(using: .utf8)
+        let (_, initResponse) = try await URLSession.shared.data(for: initRequest)
+        guard let httpInitResponse = initResponse as? HTTPURLResponse,
+              (200...299).contains(httpInitResponse.statusCode) else {
+            throw MCPError.httpError((initResponse as? HTTPURLResponse)?.statusCode ?? 0)
+        }
         
-        let (data, messagesResponse) = try await URLSession.shared.data(for: messagesRequest)
+        // Read initialize response from SSE
+        var dataBuffer = Data()
+        var lastLineIndex = 0
+        var waitingForMessage = false
+        var initResponseData: String?
         
-        guard let httpMessagesResponse = messagesResponse as? HTTPURLResponse else {
+        for try await byte in bytes.prefix(16384) {
+            dataBuffer.append(byte)
+            if let partialString = String(data: dataBuffer, encoding: .utf8) {
+                let lines = partialString.components(separatedBy: .newlines)
+                if lines.count <= lastLineIndex { continue }
+                for index in lastLineIndex..<(lines.count - 1) {
+                    let line = lines[index].trimmingCharacters(in: .whitespaces)
+                    if waitingForMessage && line.hasPrefix("data: ") {
+                        let data = String(line.dropFirst(6))
+                        if data.contains("\"id\":\"\(initID)\"") {
+                            initResponseData = data
+                            break
+                        }
+                    } else if line == "event: message" {
+                        waitingForMessage = true
+                    }
+                }
+                lastLineIndex = lines.count - 1
+                if initResponseData != nil { break }
+            }
+            if dataBuffer.count > 8192 { break }
+        }
+        
+        // Step 5: Send notifications/initialized
+        let notifJSON = """
+        {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {}
+        }
+        """
+        
+        var notifRequest = URLRequest(url: messagesURL)
+        notifRequest.httpMethod = "POST"
+        notifRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        notifRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        notifRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        notifRequest.timeoutInterval = 10
+        
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            notifRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        notifRequest.httpBody = notifJSON.data(using: .utf8)
+        let (_, notifResponse) = try await URLSession.shared.data(for: notifRequest)
+        guard let httpNotifResponse = notifResponse as? HTTPURLResponse,
+              (200...299).contains(httpNotifResponse.statusCode) else {
+            throw MCPError.httpError((notifResponse as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        
+        // Step 6: Send tools/list request
+        let toolsID = UUID().uuidString
+        let toolsJSON = """
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "id": "\(toolsID)",
+            "params": {}
+        }
+        """
+        
+        var toolsRequest = URLRequest(url: messagesURL)
+        toolsRequest.httpMethod = "POST"
+        toolsRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        toolsRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        toolsRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        toolsRequest.timeoutInterval = 30
+        
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            toolsRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        toolsRequest.httpBody = toolsJSON.data(using: .utf8)
+        let (_, toolsResponse) = try await URLSession.shared.data(for: toolsRequest)
+        guard let httpToolsResponse = toolsResponse as? HTTPURLResponse else {
             throw MCPError.invalidResponse
         }
         
-        print("📡 Messages Response Status: \(httpMessagesResponse.statusCode)")
+        print("📡 Messages Response Status: \(httpToolsResponse.statusCode)")
         
-        guard (200...299).contains(httpMessagesResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpMessagesResponse.statusCode)
+        guard (200...299).contains(httpToolsResponse.statusCode) else {
+            throw MCPError.httpError(httpToolsResponse.statusCode)
         }
         
-        // Parse tools from response
-        let responseString = String(data: data, encoding: .utf8) ?? "no data"
-        print("📄 Response body: \(responseString.prefix(500))")
+        // Step 7: Read tools/list response from the SSE stream
+        var toolsDataBuffer = Data()
+        var toolsLastLineIndex = 0
+        var toolsWaitingForMessage = false
+        var responseData: String?
         
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            print("❌ Could not parse JSON response")
-            print("   Raw data: \(String(describing: data))")
+        for try await byte in bytes.prefix(32768) {
+            toolsDataBuffer.append(byte)
+            
+            if let partialString = String(data: toolsDataBuffer, encoding: .utf8) {
+                let lines = partialString.components(separatedBy: .newlines)
+                
+                if lines.count <= toolsLastLineIndex {
+                    continue
+                }
+                
+                for index in toolsLastLineIndex..<(lines.count - 1) {
+                    let line = lines[index].trimmingCharacters(in: .whitespaces)
+                    
+                    if toolsWaitingForMessage {
+                        if line.hasPrefix("data: ") {
+                            let data = String(line.dropFirst(6))
+                            if data.contains("\"id\":\"\(toolsID)\"") {
+                                responseData = data
+                                break
+                            }
+                        }
+                    } else if line == "event: message" {
+                        toolsWaitingForMessage = true
+                    }
+                }
+                
+                toolsLastLineIndex = lines.count - 1
+                
+                if responseData != nil {
+                    break
+                }
+            }
+            
+            if toolsDataBuffer.count > 16384 {
+                print("⚠️ SSE buffer too large, stopping")
+                break
+            }
+        }
+        
+        guard let responseData = responseData else {
+            print("❌ Did not receive JSON-RPC response in SSE stream")
             return []
         }
         
-        print("📦 Response: \(json)")
+        print("📄 SSE response data: \(responseData.prefix(200))...")
+        
+        guard let jsonData = responseData.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            print("❌ Could not parse JSON response")
+            return []
+        }
+        
+        print("📦 Response keys: \(json.keys.joined(separator: ", "))")
         
         var tools: [MCPTool] = []
         if let result = json["result"] as? [String: Any],
@@ -307,11 +481,38 @@ class MCPClient {
     
     // Call a tool on the MCP server
     private func callToolOnServer(name: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        guard let endpoint = try await getSessionEndpoint(sseURL: sseURL, accessToken: accessToken) else {
+        // Open a new SSE session for this tool call
+        guard let baseURL = URL(string: sseURL) else {
+            throw MCPError.invalidURL
+        }
+        
+        print("🔧 Calling tool: \(name)")
+        
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "GET"
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        request.timeoutInterval = 30
+        
+        let settings = SettingsManager.shared
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
             throw MCPError.invalidResponse
         }
         
-        // Step 2: Build full messages URL from base SSE URL
+        // Parse session endpoint
+        guard let endpoint = try await parseSessionEndpoint(from: bytes) else {
+            throw MCPError.invalidResponse
+        }
+        
+        print("✅ Got tool call session: \(endpoint)")
+        
+        // Build messages URL
         var baseURLString = sseURL
         if baseURLString.hasSuffix("/sse") {
             baseURLString = String(baseURLString.dropLast(4))
@@ -321,62 +522,188 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        // The endpoint is an absolute path like /mcp_server/messages/...
-        // Construct full URL: scheme://host:port + endpoint
         let fullURL = "\(baseURL.scheme ?? "http")://\(baseURL.host ?? ""):\(baseURL.port ?? 8123)\(endpoint.trimmingCharacters(in: .whitespaces))"
-        
         guard let messagesURL = URL(string: fullURL) else {
             throw MCPError.invalidURL
         }
         
-        // Step 3: Send JSON-RPC request to messages endpoint
+        // Initialize MCP session (required before tool calls)
+        let initID = UUID().uuidString
+        let initJSON = """
+        {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "id": "\(initID)",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "MCP iOS Client",
+                    "version": "1.0"
+                }
+            }
+        }
+        """
+        
+        var initRequest = URLRequest(url: messagesURL)
+        initRequest.httpMethod = "POST"
+        initRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        initRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        initRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        initRequest.timeoutInterval = 30
+        
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            initRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        initRequest.httpBody = initJSON.data(using: .utf8)
+        let (_, initResponse) = try await URLSession.shared.data(for: initRequest)
+        guard let httpInitResponse = initResponse as? HTTPURLResponse,
+              (200...299).contains(httpInitResponse.statusCode) else {
+            throw MCPError.httpError((initResponse as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        
+        // Read initialize response from SSE (skip for now)
+        // Then send notifications/initialized
+        let notifJSON = """
+        {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {}
+        }
+        """
+        
+        var notifRequest = URLRequest(url: messagesURL)
+        notifRequest.httpMethod = "POST"
+        notifRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        notifRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        notifRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        notifRequest.timeoutInterval = 10
+        
+        if settings.mcpUseAuth && !accessToken.isEmpty {
+            notifRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        notifRequest.httpBody = notifJSON.data(using: .utf8)
+        let (_, notifResponse) = try await URLSession.shared.data(for: notifRequest)
+        guard let httpNotifResponse = notifResponse as? HTTPURLResponse,
+              (200...299).contains(httpNotifResponse.statusCode) else {
+            throw MCPError.httpError((notifResponse as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+        
+        // Send tools/call request
+        let requestID = UUID().uuidString
+        
+        // Build the complete JSON-RPC request with proper argument encoding
         let requestBody: [String: Any] = [
             "jsonrpc": "2.0",
             "method": "tools/call",
-            "id": UUID().uuidString,
+            "id": requestID,
             "params": [
                 "name": name,
                 "arguments": arguments
-            ]
+            ] as [String : Any]
         ]
+        
+        // Debug: print the request body that will be sent
+        if let jsonData = try? JSONSerialization.data(withJSONObject: requestBody),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("📤 Tool call request body: \(jsonString)")
+        }
         
         var messagesRequest = URLRequest(url: messagesURL)
         messagesRequest.httpMethod = "POST"
         messagesRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         messagesRequest.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        messagesRequest.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
-        messagesRequest.timeoutInterval = 10
+        messagesRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
+        messagesRequest.timeoutInterval = 30
         
-        let settings = SettingsManager.shared
         if settings.mcpUseAuth && !accessToken.isEmpty {
             messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
         messagesRequest.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        let (_, toolsResponse) = try await URLSession.shared.data(for: messagesRequest)
         
-        let (data, messagesResponse) = try await URLSession.shared.data(for: messagesRequest)
+        guard let httpToolsResponse = toolsResponse as? HTTPURLResponse,
+              (200...299).contains(httpToolsResponse.statusCode) else {
+            throw MCPError.httpError((toolsResponse as? HTTPURLResponse)?.statusCode ?? 0)
+        }
         
-        guard let httpMessagesResponse = messagesResponse as? HTTPURLResponse else {
+        // Read response from SSE
+        print("📡 Reading tool call response from SSE stream...")
+        var toolsDataBuffer = Data()
+        var toolsLastLineIndex = 0
+        var toolsWaitingForMessage = false
+        var responseData: String?
+        var bytesRead = 0
+        
+        for try await byte in bytes.prefix(32768) {
+            toolsDataBuffer.append(byte)
+            bytesRead += 1
+            
+            if let partialString = String(data: toolsDataBuffer, encoding: .utf8) {
+                let lines = partialString.components(separatedBy: .newlines)
+                
+                if lines.count <= toolsLastLineIndex {
+                    continue
+                }
+                
+                for index in toolsLastLineIndex..<(lines.count - 1) {
+                    let line = lines[index].trimmingCharacters(in: .whitespaces)
+                    
+                    if toolsWaitingForMessage {
+                        if line.hasPrefix("data: ") {
+                            let data = String(line.dropFirst(6))
+                            if data.contains("\"id\":\"\(requestID)\"") {
+                                responseData = data
+                                print("✅ Received tool call response")
+                                break
+                            }
+                        }
+                    } else if line == "event: message" {
+                        print("📍 Found event: message in SSE stream")
+                        toolsWaitingForMessage = true
+                    }
+                }
+                
+                toolsLastLineIndex = lines.count - 1
+                
+                if responseData != nil {
+                    break
+                }
+            }
+            
+            if toolsDataBuffer.count > 16384 {
+                print("⚠️ SSE buffer exceeded 16KB limit")
+                break
+            }
+            
+            // Timeout after reading a reasonable amount
+            if bytesRead > 4096 && toolsDataBuffer.isEmpty {
+                print("⚠️ No data received from SSE stream after 4KB")
+                break
+            }
+        }
+        
+        print("📊 Read \(bytesRead) bytes from SSE stream")
+        
+        guard let responseData = responseData else {
+            print("❌ No response found in SSE stream")
             throw MCPError.invalidResponse
         }
         
-        guard (200...299).contains(httpMessagesResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            print("❌ Error: \(errorBody)")
-            throw MCPError.httpError(httpMessagesResponse.statusCode)
-        }
+        print("📄 Tool call response: \(responseData.prefix(500))")
         
-        // Parse JSON-RPC response
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let jsonData = responseData.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            print("❌ Failed to parse response as JSON")
             throw MCPError.invalidResponse
         }
-        
-        print("📦 Response: \(json)")
         
         // Extract content from result
         if let result = json["result"] as? [String: Any] {
             if let content = result["content"] as? [[String: Any]] {
-                // Extract text items from content array
                 let textItems = content.compactMap { item -> String? in
                     if let type = item["type"] as? String, type == "text",
                        let text = item["text"] as? String {
@@ -384,12 +711,16 @@ class MCPClient {
                     }
                     return nil
                 }
-                return textItems.joined(separator: "\n")
+                let result = textItems.joined(separator: "\n")
+                print("✅ Tool call succeeded: \(result)")
+                return result
             } else if let message = result["message"] as? String {
+                print("✅ Tool call succeeded: \(message)")
                 return message
             }
         }
         
+        print("✅ Tool call completed (no result content)")
         return "Success"
     }
     

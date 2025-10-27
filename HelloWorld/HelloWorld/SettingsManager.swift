@@ -50,18 +50,21 @@ class SettingsManager: ObservableObject {
     @Published var mcpSSEURL: String {
         didSet {
             UserDefaults.standard.set(mcpSSEURL, forKey: "mcpSSEURL")
+            MCPClient.shared.clearCache()
         }
     }
     
     @Published var mcpAccessToken: String {
         didSet {
             UserDefaults.standard.set(mcpAccessToken, forKey: "mcpAccessToken")
+            MCPClient.shared.clearCache()
         }
     }
     
     @Published var mcpUseAuth: Bool {
         didSet {
             UserDefaults.standard.set(mcpUseAuth, forKey: "mcpUseAuth")
+            MCPClient.shared.clearCache()
         }
     }
     

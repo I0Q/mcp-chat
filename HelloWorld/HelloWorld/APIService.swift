@@ -50,12 +50,19 @@ class APIService {
                 
                 if !tools.isEmpty {
                     requestBody["tools"] = tools.map { tool in
-                        [
+                        var function: [String: Any] = [
+                            "name": tool.name,
+                            "description": tool.description ?? ""
+                        ]
+                        
+                        // Add parameters (input schema) if available
+                        if let inputSchema = tool.inputSchema {
+                            function["parameters"] = inputSchema
+                        }
+                        
+                        return [
                             "type": "function",
-                            "function": [
-                                "name": tool.name,
-                                "description": tool.description ?? ""
-                            ]
+                            "function": function
                         ] as [String: Any]
                     }
                 }
@@ -200,7 +207,17 @@ class APIService {
     }
     
     private func executeToolCall(_ toolCall: ChatCompletionResponse.ToolCall) async throws -> String {
-        let arguments = try JSONSerialization.jsonObject(with: toolCall.function.arguments.data(using: .utf8)!) as? [String: Any] ?? [:]
+        // Parse the arguments JSON string into a dictionary
+        guard let jsonData = toolCall.function.arguments.data(using: .utf8) else {
+            throw APIError.decodingError
+        }
+        
+        let arguments = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] ?? [:]
+        
+        print("🔧 Executing tool: \(toolCall.function.name)")
+        print("   Raw arguments JSON: \(toolCall.function.arguments)")
+        print("   Parsed arguments: \(arguments)")
+        
         return try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
     }
     
