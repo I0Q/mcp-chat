@@ -80,9 +80,11 @@ class VoiceService: NSObject, AVAudioRecorderDelegate, ObservableObject {
     
     func transcribe(audioURL: URL) async throws -> String {
         let settings = await SettingsManager.shared
-        guard let serverURL = await URL(string: settings.voiceServiceURL) else {
+        guard let baseURL = await URL(string: settings.voiceServiceURL) else {
             throw VoiceError.invalidURL
         }
+        // Append /asr endpoint
+        let serverURL = baseURL.appendingPathComponent("asr")
         
         // Read audio file data
         let audioData = try Data(contentsOf: audioURL)
