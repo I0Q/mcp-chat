@@ -256,8 +256,12 @@ class MCPClient {
         }
         
         // Parse tools from response
+        let responseString = String(data: data, encoding: .utf8) ?? "no data"
+        print("📄 Response body: \(responseString.prefix(500))")
+        
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             print("❌ Could not parse JSON response")
+            print("   Raw data: \(String(describing: data))")
             return []
         }
         
