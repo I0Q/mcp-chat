@@ -15,6 +15,42 @@ class MCPClient {
     
     private init() {}
     
+    // Helper to get session endpoint from SSE
+    private func getSessionEndpoint(sseURL: String, accessToken: String) async throws -> String? {
+        guard let baseURL = URL(string: sseURL) else { return nil }
+        
+        var request = URLRequest(url: baseURL)
+        request.httpMethod = "GET"
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 10
+        
+        if !accessToken.isEmpty {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else { return nil }
+        
+        // Parse SSE for "event: endpoint" and "data: /messages/..."
+        var dataBuffer = Data()
+        for try await byte in bytes.prefix(8192) {
+            dataBuffer.append(byte)
+            if let messageString = String(data: dataBuffer, encoding: .utf8) {
+                let lines = messageString.components(separatedBy: .newlines)
+                for (index, line) in lines.enumerated() {
+                    if line == "event: endpoint" && index + 1 < lines.count {
+                        let dataLine = lines[index + 1]
+                        if dataLine.hasPrefix("data: ") {
+                            return String(dataLine.dropFirst(6))
+                        }
+                    }
+                }
+            }
+            if dataBuffer.count > 4096 { break }
+        }
+        return nil
+    }
+    
     // Fetch tools from MCP server (with caching, pulls from settings)
     func fetchTools() async throws -> [MCPTool] {
         if !cachedTools.isEmpty { return cachedTools }
@@ -28,67 +64,7 @@ class MCPClient {
     
     // Fetch tools from MCP server via SSE transport
     private func fetchToolsFromServer(sseURL: String, accessToken: String) async throws -> [MCPTool] {
-        print("🔗 Connecting to MCP server via SSE: \(sseURL)")
-        
-        guard let baseURL = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        // Step 1: Connect to SSE endpoint to get session endpoint
-        var request = URLRequest(url: baseURL)
-        request.httpMethod = "GET"
-        // Per MCP spec, include both content types in Accept header
-        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 10
-        
-        if !accessToken.isEmpty {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        print("📡 SSE Response Status: \(httpResponse.statusCode)")
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Step 2: Parse SSE to get session endpoint
-        var dataBuffer = Data()
-        var sessionEndpoint: String?
-        
-        for try await byte in bytes.prefix(8192) { // Read up to 8KB
-            dataBuffer.append(byte)
-            
-            if let messageString = String(data: dataBuffer, encoding: .utf8) {
-                // Look for "event: endpoint" and "data: /messages/..."
-                let lines = messageString.components(separatedBy: .newlines)
-                for (index, line) in lines.enumerated() {
-                    if line == "event: endpoint" && index + 1 < lines.count {
-                        let dataLine = lines[index + 1]
-                        if dataLine.hasPrefix("data: ") {
-                            sessionEndpoint = String(dataLine.dropFirst(6))
-                            print("📍 Session endpoint: \(sessionEndpoint ?? "nil")")
-                            break
-                        }
-                    }
-                }
-                
-                if sessionEndpoint != nil {
-                    break
-                }
-                
-                if dataBuffer.count > 4096 {
-                    break
-                }
-            }
-        }
-        
-        guard let endpoint = sessionEndpoint else {
+        guard let endpoint = try await getSessionEndpoint(sseURL: sseURL, accessToken: accessToken) else {
             print("❌ Could not get session endpoint from SSE")
             return []
         }
@@ -194,62 +170,7 @@ class MCPClient {
     
     // Call a tool on the MCP server
     private func callToolOnServer(name: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
-        print("🔧 Calling tool: \(name) with args: \(arguments)")
-        
-        guard let baseURL = URL(string: sseURL) else {
-            throw MCPError.invalidURL
-        }
-        
-        // Step 1: Connect to SSE endpoint to get session endpoint (same as fetchTools)
-        var request = URLRequest(url: baseURL)
-        request.httpMethod = "GET"
-        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 10
-        
-        if !accessToken.isEmpty {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MCPError.invalidResponse
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw MCPError.httpError(httpResponse.statusCode)
-        }
-        
-        // Parse SSE to get session endpoint
-        var dataBuffer = Data()
-        var sessionEndpoint: String?
-        
-        for try await byte in bytes.prefix(8192) {
-            dataBuffer.append(byte)
-            
-            if let messageString = String(data: dataBuffer, encoding: .utf8) {
-                let lines = messageString.components(separatedBy: .newlines)
-                for (index, line) in lines.enumerated() {
-                    if line == "event: endpoint" && index + 1 < lines.count {
-                        let dataLine = lines[index + 1]
-                        if dataLine.hasPrefix("data: ") {
-                            sessionEndpoint = String(dataLine.dropFirst(6))
-                            break
-                        }
-                    }
-                }
-                
-                if sessionEndpoint != nil {
-                    break
-                }
-                
-                if dataBuffer.count > 4096 {
-                    break
-                }
-            }
-        }
-        
-        guard let endpoint = sessionEndpoint else {
+        guard let endpoint = try await getSessionEndpoint(sseURL: sseURL, accessToken: accessToken) else {
             throw MCPError.invalidResponse
         }
         
