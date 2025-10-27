@@ -257,7 +257,7 @@ struct ChatCompletionResponse: Codable {
         enum CodingKeys: String, CodingKey {
             case content
             case toolCalls = "tool_calls"
-            case thinking
+            case thinking = "reasoning"
         }
     }
     
@@ -283,6 +283,11 @@ struct StreamResponse: Codable {
     struct StreamDelta: Codable {
         let content: String?
         let thinking: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case content
+            case thinking = "reasoning"
+        }
     }
 }
 
