@@ -74,13 +74,6 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    @Published var showMCPInReasoning: Bool {
-        didSet {
-            UserDefaults.standard.set(showMCPInReasoning, forKey: "showMCPInReasoning")
-        }
-    }
-    
-    // Voice Transcription Settings
     @Published var voiceEnabled: Bool {
         didSet {
             UserDefaults.standard.set(voiceEnabled, forKey: "voiceEnabled")
@@ -111,9 +104,7 @@ class SettingsManager: ObservableObject {
         self.mcpAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? ""
         self.mcpUseAuth = UserDefaults.standard.bool(forKey: "mcpUseAuth")
         self.selectedTools = UserDefaults.standard.array(forKey: "selectedTools") as? [String] ?? []
-        self.showMCPInReasoning = UserDefaults.standard.bool(forKey: "showMCPInReasoning")
         
-        // Voice Transcription Settings
         self.voiceEnabled = UserDefaults.standard.bool(forKey: "voiceEnabled")
         self.voiceServiceURL = UserDefaults.standard.string(forKey: "voiceServiceURL") ?? "http://192.168.1.232:8005"
         self.voiceServiceType = UserDefaults.standard.string(forKey: "voiceServiceType") ?? "openai-whisper"
