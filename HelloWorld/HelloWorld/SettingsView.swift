@@ -46,9 +46,13 @@ struct SettingsView: View {
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                     
-                    SecureField("Access Token", text: $settings.mcpAccessToken)
+                    SecureField("Access Token (optional)", text: $settings.mcpAccessToken)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
+                    
+                    Text("Not needed when using mcp-proxy")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             
