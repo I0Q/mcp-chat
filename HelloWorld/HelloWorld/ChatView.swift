@@ -442,19 +442,19 @@ struct SelectableText: UIViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
         textView.font = UIFont.preferredFont(forTextStyle: .body)
-        textView.textContainer.widthTracksTextView = true
-        textView.textContainer.containerSize = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
+        textView.textContainer.widthTracksTextView = false
+        textView.textContainer.size = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
         return textView
     }
     
     func updateUIView(_ textView: UITextView, context: Context) {
         textView.text = text
-        textView.textContainer.containerSize = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
+        textView.textContainer.size = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
     }
     
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         let targetWidth = min(proposal.width ?? maxWidth, maxWidth)
-        uiView.textContainer.containerSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        uiView.textContainer.size = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
         uiView.layoutIfNeeded()
         
         let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
