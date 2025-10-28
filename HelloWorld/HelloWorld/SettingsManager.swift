@@ -138,12 +138,13 @@ class SettingsManager: ObservableObject {
         }
         
         // Initialize or migrate MCP servers
+        var servers: [MCPServerConfig] = []
+        
         if let data = UserDefaults.standard.data(forKey: "mcpServers"),
-           let servers = try? JSONDecoder().decode([MCPServerConfig].self, from: data) {
-            self.mcpServers = servers
+           let decodedServers = try? JSONDecoder().decode([MCPServerConfig].self, from: data) {
+            servers = decodedServers
         } else {
             // Migrate from old single-server setup
-            var servers: [MCPServerConfig] = []
             let oldServerName = UserDefaults.standard.string(forKey: "mcpServerName") ?? "Main MCP Server"
             let oldSSEURL = UserDefaults.standard.string(forKey: "mcpSSEURL") ?? ""
             let oldAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? ""
@@ -161,13 +162,13 @@ class SettingsManager: ObservableObject {
                 servers.append(server)
             }
             
-            self.mcpServers = servers
-            
             // Save migrated data
             if let encoded = try? JSONEncoder().encode(servers) {
                 UserDefaults.standard.set(encoded, forKey: "mcpServers")
             }
         }
+        
+        self.mcpServers = servers
     }
     
     // Helper methods for managing MCP servers
