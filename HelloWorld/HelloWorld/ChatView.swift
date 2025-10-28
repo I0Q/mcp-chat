@@ -143,6 +143,10 @@ struct ChatView: View {
                 onTapStop: stopVoiceRecording
             )
         )
+        .onTapGesture {
+            // Dismiss keyboard when tapping outside input area
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
     
     private func sendMessage() {
