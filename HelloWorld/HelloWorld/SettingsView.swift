@@ -107,7 +107,7 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Information"), footer: Text("Version 1.0")) {
+            Section(header: Text("Information"), footer: Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")")) {
                 HStack {
                     Text("Server Status")
                     Spacer()

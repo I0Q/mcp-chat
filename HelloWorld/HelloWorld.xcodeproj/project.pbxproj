@@ -64,6 +64,7 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
+				DD5F60B12EB10CA10043B79F /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -126,6 +127,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DD5F60B12EB10CA10043B79F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Get current git branch name\nBRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)\n\n# Set the version number to branch name\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $BRANCH_NAME\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
