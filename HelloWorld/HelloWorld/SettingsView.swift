@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import LocalAuthentication
 
 struct SettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
@@ -13,6 +14,8 @@ struct SettingsView: View {
     @State private var alertMessage = ""
     @State private var showTokenInput = false
     @State private var tokenInput = ""
+    @State private var showToken = false
+    @State private var authenticatedToken = ""
     
     var body: some View {
         Form {
@@ -64,6 +67,25 @@ struct SettingsView: View {
                                 if !settings.mcpAccessToken.isEmpty {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
+                                }
+                            }
+                        }
+                        
+                        if !settings.mcpAccessToken.isEmpty {
+                            Button(action: {
+                                authenticateAndShowToken()
+                            }) {
+                                HStack {
+                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                    Text(showToken ? "Hide Token" : "Show Token")
+                                    Spacer()
+                                    if showToken {
+                                        Text(settings.mcpAccessToken)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
                                 }
                             }
                         }
@@ -181,6 +203,38 @@ struct SettingsView: View {
                     alertMessage = "MCP enabled!"
                     showAlert = true
                 }
+            }
+        }
+    }
+    
+    private func authenticateAndShowToken() {
+        if showToken {
+            // Simply hide the token
+            showToken = false
+            authenticatedToken = ""
+        } else {
+            // Authenticate with Face ID or Touch ID
+            let context = LAContext()
+            var error: NSError?
+            
+            if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+                let reason = "Please authenticate to view your access token"
+                
+                context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
+                    DispatchQueue.main.async {
+                        if success {
+                            showToken = true
+                            authenticatedToken = settings.mcpAccessToken
+                        } else {
+                            alertMessage = "Authentication failed"
+                            showAlert = true
+                        }
+                    }
+                }
+            } else {
+                // Fallback if biometrics not available
+                showToken = true
+                authenticatedToken = settings.mcpAccessToken
             }
         }
     }
