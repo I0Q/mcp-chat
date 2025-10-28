@@ -22,8 +22,25 @@ for plist in "$target_plist" "$dsym_plist"; do
     echo "Found plist: $plist"
     echo "Setting CFBundleVersion to: $number_of_commits"
     echo "Setting CFBundleShortVersionString to: ${git_release_version#*v}"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $number_of_commits" "$plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${git_release_version#*v}" "$plist"
+    
+    # Try using defaults first (works better with sandboxing)
+    defaults write "$plist" CFBundleVersion "$number_of_commits" 2>/dev/null || echo "defaults write failed for CFBundleVersion"
+    defaults write "$plist" CFBundleShortVersionString "${git_release_version#*v}" 2>/dev/null || echo "defaults write failed for CFBundleShortVersionString"
+    
+    # Fallback to PlistBuddy if defaults fails
+    if ! defaults read "$plist" CFBundleVersion >/dev/null 2>&1; then
+      echo "Falling back to PlistBuddy for CFBundleVersion"
+      /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $number_of_commits" "$plist" 2>/dev/null || echo "PlistBuddy also failed for CFBundleVersion"
+    fi
+    
+    if ! defaults read "$plist" CFBundleShortVersionString >/dev/null 2>&1; then
+      echo "Falling back to PlistBuddy for CFBundleShortVersionString"
+      /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${git_release_version#*v}" "$plist" 2>/dev/null || echo "PlistBuddy also failed for CFBundleShortVersionString"
+    fi
+    
+    # Verify the values were set
+    echo "Final CFBundleVersion: $(defaults read "$plist" CFBundleVersion 2>/dev/null || echo 'NOT SET')"
+    echo "Final CFBundleShortVersionString: $(defaults read "$plist" CFBundleShortVersionString 2>/dev/null || echo 'NOT SET')"
   else
     echo "Plist not found: $plist"
   fi
