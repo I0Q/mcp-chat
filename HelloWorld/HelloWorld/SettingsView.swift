@@ -57,7 +57,9 @@ struct SettingsView: View {
                     
                     if settings.mcpUseAuth {
                         Button(action: {
+                            // Set token input immediately before showing sheet
                             tokenInput = settings.mcpAccessToken
+                            showToken = false // Reset show state
                             showTokenInput = true
                         }) {
                             HStack {
@@ -188,12 +190,6 @@ struct SettingsView: View {
                     }
                 }
                 .presentationDetents([.medium])
-            }
-            .onAppear {
-                // Initialize with existing token
-                if !settings.mcpAccessToken.isEmpty {
-                    tokenInput = settings.mcpAccessToken
-                }
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
