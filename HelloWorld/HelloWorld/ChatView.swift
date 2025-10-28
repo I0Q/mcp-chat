@@ -372,8 +372,7 @@ struct ChatBubble: View {
             
             VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(message.content)
-                        .textSelection(.enabled)
+                    SelectableText(text: message.content)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(message.role == "user" ? Color.accentColor : Color(.systemGray5))
@@ -397,8 +396,7 @@ struct ChatBubble: View {
                         }
                         
                         if showThinking {
-                            Text(thinking)
-                                .textSelection(.enabled)
+                            SelectableText(text: thinking)
                                 .font(.caption)
                                 .padding()
                                 .background(Color.yellow.opacity(0.2))
@@ -419,6 +417,29 @@ struct ChatBubble: View {
                 Spacer()
             }
         }
+    }
+}
+
+// UIViewRepresentable for UITextView with selection enabled
+struct SelectableText: UIViewRepresentable {
+    let text: String
+    
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.text = text
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isUserInteractionEnabled = true
+        textView.isScrollEnabled = false
+        textView.backgroundColor = .clear
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.font = UIFont.preferredFont(forTextStyle: .body)
+        return textView
+    }
+    
+    func updateUIView(_ textView: UITextView, context: Context) {
+        textView.text = text
     }
 }
 
