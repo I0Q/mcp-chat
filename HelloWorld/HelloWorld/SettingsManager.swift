@@ -131,6 +131,9 @@ class SettingsManager: ObservableObject {
         self.voiceServiceType = UserDefaults.standard.string(forKey: "voiceServiceType") ?? "openai-whisper"
         self.showMCPInReasoning = UserDefaults.standard.bool(forKey: "showMCPInReasoning")
         
+        // Initialize mcpServers first
+        self.mcpServers = []
+        
         // Migrate old model names
         if selectedModel == "gpt-oss-120b" {
             UserDefaults.standard.set("openai/gpt-oss-120b", forKey: "selectedModel")
@@ -138,11 +141,9 @@ class SettingsManager: ObservableObject {
         }
         
         // Initialize or migrate MCP servers
-        var servers: [MCPServerConfig] = []
-        
         if let data = UserDefaults.standard.data(forKey: "mcpServers"),
            let decodedServers = try? JSONDecoder().decode([MCPServerConfig].self, from: data) {
-            servers = decodedServers
+            self.mcpServers = decodedServers
         } else {
             // Migrate from old single-server setup
             let oldServerName = UserDefaults.standard.string(forKey: "mcpServerName") ?? "Main MCP Server"
@@ -159,16 +160,14 @@ class SettingsManager: ObservableObject {
                     useAuth: oldUseAuth,
                     enabled: oldEnabled
                 )
-                servers.append(server)
+                self.mcpServers.append(server)
             }
             
             // Save migrated data
-            if let encoded = try? JSONEncoder().encode(servers) {
+            if let encoded = try? JSONEncoder().encode(self.mcpServers) {
                 UserDefaults.standard.set(encoded, forKey: "mcpServers")
             }
         }
-        
-        self.mcpServers = servers
     }
     
     // Helper methods for managing MCP servers
