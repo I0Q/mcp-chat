@@ -16,7 +16,6 @@ struct SettingsView: View {
     @State private var tokenInput = ""
     @State private var showToken = false
     @State private var authenticatedToken = ""
-    @State private var cachedToken = ""
     
     var body: some View {
         Form {
@@ -58,14 +57,8 @@ struct SettingsView: View {
                     
                     if settings.mcpUseAuth {
                         Button(action: {
-                            print("🔑 Button tapped - opening token sheet")
-                            // Cache the token value and reset state
-                            cachedToken = settings.mcpAccessToken
-                            tokenInput = cachedToken
-                            showToken = false // Reset show state
-                            print("🔑 Setting showTokenInput to true")
+                            tokenInput = settings.mcpAccessToken
                             showTokenInput = true
-                            print("🔑 showTokenInput: \(showTokenInput)")
                         }) {
                             HStack {
                                 Image(systemName: "key.fill")
@@ -76,6 +69,50 @@ struct SettingsView: View {
                                         .foregroundColor(.green)
                                 }
                             }
+                        }
+                        .sheet(isPresented: $showTokenInput) {
+                            NavigationView {
+                                Form {
+                                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                                        if showToken {
+                                            Text(settings.mcpAccessToken)
+                                                .font(.system(.body, design: .monospaced))
+                                                .textSelection(.enabled)
+                                        } else {
+                                            SecureField("Token", text: $tokenInput)
+                                                .autocapitalization(.none)
+                                                .disableAutocorrection(true)
+                                        }
+                                    }
+                                    
+                                    Section {
+                                        Button(action: {
+                                            authenticateAndShowToken()
+                                        }) {
+                                            HStack {
+                                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                                Text(showToken ? "Hide Token" : "Show Token")
+                                            }
+                                        }
+                                    }
+                                }
+                                .navigationTitle("Access Token")
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar {
+                                    ToolbarItem(placement: .cancellationAction) {
+                                        Button("Cancel") {
+                                            showTokenInput = false
+                                        }
+                                    }
+                                    ToolbarItem(placement: .confirmationAction) {
+                                        Button("Save") {
+                                            settings.mcpAccessToken = tokenInput
+                                            showTokenInput = false
+                                        }
+                                    }
+                                }
+                            }
+                            .presentationDetents([.medium])
                         }
                     }
                     
@@ -140,36 +177,6 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .sheet(isPresented: $showTokenInput) {
-                let _ = print("📄 Sheet body is rendering")
-                NavigationStack {
-                    VStack {
-                        Text("Access Token")
-                            .font(.headline)
-                            .padding()
-                        
-                        SecureField("Token", text: $tokenInput)
-                            .textFieldStyle(.roundedBorder)
-                            .padding()
-                        
-                        HStack {
-                            Button("Cancel") {
-                                showTokenInput = false
-                            }
-                            Spacer()
-                            Button("Save") {
-                                settings.mcpAccessToken = tokenInput
-                                showTokenInput = false
-                            }
-                        }
-                        .padding()
-                        
-                        Spacer()
-                    }
-                    .navigationTitle("Token")
-                    .presentationDetents([.medium])
-                }
-            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Settings")
@@ -220,7 +227,7 @@ struct SettingsView: View {
                         await MainActor.run {
                             if success {
                                 showToken = true
-                                authenticatedToken = cachedToken
+                                authenticatedToken = settings.mcpAccessToken
                             }
                         }
                     } catch {
@@ -233,7 +240,7 @@ struct SettingsView: View {
             } else {
                 // Fallback if biometrics not available
                 showToken = true
-                authenticatedToken = cachedToken
+                authenticatedToken = settings.mcpAccessToken
             }
         }
     }
