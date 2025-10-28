@@ -379,6 +379,7 @@ struct ChatBubble: View {
                         .foregroundColor(message.role == "user" ? .white : .primary)
                         .cornerRadius(20)
                         .shadow(color: message.role == "user" ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        .fixedSize(horizontal: false, vertical: true)
                     
                     // Show thinking tokens if available
                     if let thinking = message.thinking, !thinking.isEmpty {
@@ -423,6 +424,12 @@ struct ChatBubble: View {
 // UIViewRepresentable for UITextView with selection enabled
 struct SelectableText: UIViewRepresentable {
     let text: String
+    let maxWidth: CGFloat
+    
+    init(text: String, maxWidth: CGFloat = 280) {
+        self.text = text
+        self.maxWidth = maxWidth
+    }
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -435,11 +442,23 @@ struct SelectableText: UIViewRepresentable {
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
         textView.font = UIFont.preferredFont(forTextStyle: .body)
+        textView.textContainer.widthTracksTextView = true
+        textView.textContainer.containerSize = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
         return textView
     }
     
     func updateUIView(_ textView: UITextView, context: Context) {
         textView.text = text
+        textView.textContainer.containerSize = CGSize(width: maxWidth, height: .greatestFiniteMagnitude)
+    }
+    
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        let targetWidth = min(proposal.width ?? maxWidth, maxWidth)
+        uiView.textContainer.containerSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        uiView.layoutIfNeeded()
+        
+        let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
+        return CGSize(width: min(size.width, targetWidth), height: size.height)
     }
 }
 
