@@ -16,6 +16,8 @@ struct SettingsView: View {
     @State private var tokenInput = ""
     @State private var showToken = false
     @State private var authenticatedToken = ""
+    @State private var showAddServer = false
+    @State private var newServer: MCPServerConfig?
     
     var body: some View {
         Form {
@@ -64,14 +66,14 @@ struct SettingsView: View {
                     }
                     
                     Button(action: {
-                        let newServer = MCPServerConfig(
+                        newServer = MCPServerConfig(
                             name: "New MCP Server",
                             sseURL: "",
                             accessToken: "",
                             useAuth: false,
                             enabled: true
                         )
-                        settings.addMCPServer(newServer)
+                        showAddServer = true
                     }) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
@@ -139,6 +141,16 @@ struct SettingsView: View {
                 Button("OK") { }
             } message: {
                 Text(alertMessage)
+            }
+            .sheet(isPresented: $showAddServer) {
+                if let newServer = newServer {
+                    MCPServerAddView(newServer: newServer) { savedServer in
+                        settings.addMCPServer(savedServer)
+                        self.newServer = nil
+                    } onCancel: {
+                        self.newServer = nil
+                    }
+                }
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
@@ -357,6 +369,168 @@ struct MCPServerEditView: View {
         var updatedServer = settings.mcpServers[index]
         update(&updatedServer)
         settings.updateMCPServer(updatedServer)
+    }
+    
+    private func authenticateAndShowToken() {
+        if showToken {
+            // Simply hide the token
+            showToken = false
+            cachedToken = ""
+        } else {
+            // Authenticate with Face ID or Touch ID
+            let context = LAContext()
+            context.localizedCancelTitle = "Cancel"
+            
+            var error: NSError?
+            
+            if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+                let reason = "Please authenticate to view your access token"
+                
+                Task {
+                    do {
+                        let success = try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason)
+                        
+                        await MainActor.run {
+                            if success {
+                                showToken = true
+                            }
+                        }
+                    } catch {
+                        // Handle error silently
+                        print("Authentication failed: \(error.localizedDescription)")
+                    }
+                }
+            } else {
+                // Fallback if biometrics not available
+                showToken = true
+            }
+        }
+    }
+}
+
+struct MCPServerAddView: View {
+    @State private var server: MCPServerConfig
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var showTokenInput = false
+    @State private var tokenInput = ""
+    @State private var showToken = false
+    @State private var cachedToken = ""
+    
+    let onSave: (MCPServerConfig) -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
+                    TextField("Server Name", text: $server.name)
+                        .autocapitalization(.none)
+                    
+                    TextField("MCP SSE URL", text: $server.sseURL)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                    
+                    Toggle("Enable Server", isOn: $server.enabled)
+                    
+                    Toggle("Use Authentication", isOn: $server.useAuth)
+                }
+                
+                if server.useAuth {
+                    Section(header: Text("Authentication")) {
+                        Button(action: {
+                            cachedToken = server.accessToken
+                            tokenInput = server.accessToken
+                            showTokenInput = true
+                        }) {
+                            HStack {
+                                Image(systemName: "key.fill")
+                                Text(server.accessToken.isEmpty ? "Set Access Token" : "Update Access Token")
+                                Spacer()
+                                if !server.accessToken.isEmpty {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Section(header: Text("Tools")) {
+                    NavigationLink(destination: ToolDiscoveryView(serverConfig: server)) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                            Text("Discover & Select Tools")
+                            Spacer()
+                            if !server.selectedTools.isEmpty {
+                                Text("(\(server.selectedTools.count))")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("New MCP Server")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(server)
+                    }
+                }
+            }
+            .sheet(isPresented: $showTokenInput) {
+                NavigationStack {
+                    Form {
+                        Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                            if showToken {
+                                Text(cachedToken)
+                                    .font(.system(.body, design: .monospaced))
+                                    .textSelection(.enabled)
+                            } else {
+                                SecureField("Token", text: $tokenInput)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
+                        }
+                        
+                        Section {
+                            Button(action: {
+                                authenticateAndShowToken()
+                            }) {
+                                HStack {
+                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                    Text(showToken ? "Hide Token" : "Show Token")
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Access Token")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showTokenInput = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                server.accessToken = tokenInput
+                                showTokenInput = false
+                            }
+                        }
+                    }
+                    .presentationDetents([.medium])
+                }
+            }
+        }
     }
     
     private func authenticateAndShowToken() {
