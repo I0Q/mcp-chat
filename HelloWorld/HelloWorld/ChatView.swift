@@ -26,7 +26,7 @@ struct ChatView: View {
             // Chat messages area - takes remaining space
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
+                    LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(messages) { message in
                             ChatBubble(message: message)
                                 .id(message.id)
@@ -39,8 +39,8 @@ struct ChatView: View {
                                 .opacity(0.7)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: messages.count) {
@@ -56,11 +56,20 @@ struct ChatView: View {
             
             // Error message
             if let error = errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
+                HStack {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundColor(.red)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
             }
             
             // Current tool call indicator
@@ -78,13 +87,18 @@ struct ChatView: View {
             
             // Input area - fixed at bottom
             HStack(spacing: 8) {
-                TextField("Type a message...", text: $inputText)
-                    .padding(.horizontal, 12)
+                TextField("Type a message...", text: $inputText, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .lineLimit(1...6)
+                    .font(.body)
                     .background(Color(.systemGray6))
                     .cornerRadius(24)
                     .disabled(isLoading)
                     .onSubmit(sendMessage)
+                    .accessibilityLabel("Message input")
+                    .accessibilityHint("Type your message here")
                 
                 // Voice button (if enabled)
                 if SettingsManager.shared.voiceEnabled {
@@ -100,14 +114,17 @@ struct ChatView: View {
                 Button(action: sendMessage) {
                     if isLoading {
                         ProgressView()
+                            .tint(.accentColor)
                             .controlSize(.regular)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.title)
-                            .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                            .font(.title2)
+                            .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .accentColor)
                     }
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
+                .accessibilityLabel("Send message")
+                .accessibilityHint("Sends the message to the assistant")
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
@@ -352,10 +369,12 @@ struct ChatBubble: View {
             VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(message.content)
-                        .padding()
-                        .background(message.role == "user" ? Color.blue : Color.gray.opacity(0.2))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(message.role == "user" ? Color.accentColor : Color(.systemGray5))
                         .foregroundColor(message.role == "user" ? .white : .primary)
-                        .cornerRadius(16)
+                        .cornerRadius(20)
+                        .shadow(color: message.role == "user" ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                     
                     // Show thinking tokens if available
                     if let thinking = message.thinking, !thinking.isEmpty {
