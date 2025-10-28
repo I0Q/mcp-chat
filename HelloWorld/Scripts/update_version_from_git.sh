@@ -8,21 +8,20 @@ set -euo pipefail
 echo "=== Git-based Version Update ==="
 
 # Get git information
-GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo "Git branch: $GIT_BRANCH"
+GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0")
+echo "Git tag: $GIT_TAG"
 
-GIT_HASH=$(git rev-parse --short HEAD)
-echo "Git hash: $GIT_HASH"
-
-# Create version from branch name and hash
-MARKETING_VERSION="${GIT_BRANCH}-${GIT_HASH}"
+# Extract version number from tag (remove 'v' prefix)
+MARKETING_VERSION="${GIT_TAG#v}"
 echo "Marketing version: $MARKETING_VERSION"
 
-# Get total commit count for build number
-COMMIT_COUNT=$(git rev-list --count HEAD)
-echo "Total commits: $COMMIT_COUNT"
+# Get commit count since last tag
+COMMIT_COUNT=$(git rev-list --count HEAD ^$(git describe --tags --abbrev=0) 2>/dev/null || echo "0")
+echo "Commits since last tag: $COMMIT_COUNT"
 
-BUILD_NUMBER=$COMMIT_COUNT
+# Calculate build number (base + commits since tag)
+BASE_BUILD=1000
+BUILD_NUMBER=$((BASE_BUILD + COMMIT_COUNT))
 echo "Build number: $BUILD_NUMBER"
 
 # Update the project.pbxproj file
