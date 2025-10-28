@@ -70,25 +70,6 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        
-                        if !settings.mcpAccessToken.isEmpty {
-                            Button(action: {
-                                authenticateAndShowToken()
-                            }) {
-                                HStack {
-                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                    Text(showToken ? "Hide Token" : "Show Token")
-                                    Spacer()
-                                    if showToken {
-                                        Text(settings.mcpAccessToken)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                    }
-                                }
-                            }
-                        }
                     }
                     
                     NavigationLink(destination: ToolDiscoveryView()) {
@@ -168,9 +149,26 @@ struct SettingsView: View {
                 NavigationView {
                     Form {
                         Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                            SecureField("Token", text: $tokenInput)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                            if showToken {
+                                Text(settings.mcpAccessToken)
+                                    .font(.system(.body, design: .monospaced))
+                                    .textSelection(.enabled)
+                            } else {
+                                SecureField("Token", text: $tokenInput)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
+                        }
+                        
+                        Section {
+                            Button(action: {
+                                authenticateAndShowToken()
+                            }) {
+                                HStack {
+                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                    Text(showToken ? "Hide Token" : "Show Token")
+                                }
+                            }
                         }
                     }
                     .navigationTitle("Access Token")
@@ -190,6 +188,12 @@ struct SettingsView: View {
                     }
                 }
                 .presentationDetents([.medium])
+            }
+            .onAppear {
+                // Initialize with existing token
+                if !settings.mcpAccessToken.isEmpty {
+                    tokenInput = settings.mcpAccessToken
+                }
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
