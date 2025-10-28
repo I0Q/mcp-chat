@@ -46,30 +46,27 @@ struct SettingsView: View {
                 Toggle("Enable MCP", isOn: $settings.mcpEnabled)
                 
                 if settings.mcpEnabled {
-                    List {
-                        ForEach($settings.mcpServers) { $server in
-                            NavigationLink(destination: MCPServerEditView(server: $server)) {
-                                HStack {
-                                    if server.enabled {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                    } else {
-                                        Image(systemName: "circle")
-                                            .foregroundColor(.gray)
-                                    }
-                                    Text(server.name)
-                                        .foregroundColor(server.enabled ? .primary : .secondary)
-                                    Spacer()
+                    ForEach($settings.mcpServers) { $server in
+                        NavigationLink(destination: MCPServerEditView(server: $server)) {
+                            HStack {
+                                if server.enabled {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .foregroundColor(.gray)
                                 }
-                            }
-                        }
-                        .onDelete { indexSet in
-                            for index in indexSet {
-                                settings.deleteMCPServer(settings.mcpServers[index])
+                                Text(server.name)
+                                    .foregroundColor(server.enabled ? .primary : .secondary)
+                                Spacer()
                             }
                         }
                     }
-                    .frame(height: CGFloat(min(settings.mcpServers.count, 5)) * 60)
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            settings.deleteMCPServer(settings.mcpServers[index])
+                        }
+                    }
                     
                     Button(action: {
                         let newServer = MCPServerConfig(
