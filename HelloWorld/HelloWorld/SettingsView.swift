@@ -215,18 +215,26 @@ struct SettingsView: View {
         } else {
             // Authenticate with Face ID or Touch ID
             let context = LAContext()
+            context.localizedCancelTitle = "Cancel"
+            
             var error: NSError?
             
             if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
                 let reason = "Please authenticate to view your access token"
                 
-                context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
-                    DispatchQueue.main.async {
-                        if success {
-                            showToken = true
-                            authenticatedToken = settings.mcpAccessToken
-                        } else {
-                            alertMessage = "Authentication failed"
+                Task {
+                    do {
+                        let success = try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason)
+                        
+                        await MainActor.run {
+                            if success {
+                                showToken = true
+                                authenticatedToken = settings.mcpAccessToken
+                            }
+                        }
+                    } catch {
+                        await MainActor.run {
+                            alertMessage = "Authentication failed: \(error.localizedDescription)"
                             showAlert = true
                         }
                     }
