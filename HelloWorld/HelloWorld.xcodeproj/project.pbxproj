@@ -144,7 +144,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Get current git branch name\nBRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)\n\n# Set the version number to branch name\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $BRANCH_NAME\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n";
+			shellScript = "#!/bin/bash\n\n# Get current git branch name\nBRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)\n\n# Set it as a build setting that can be used in Info.plist\necho \"GIT_BRANCH_VERSION = $BRANCH_NAME\" >> \"${SRCROOT}/build_settings.xcconfig\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
