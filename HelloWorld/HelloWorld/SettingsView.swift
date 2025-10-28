@@ -435,10 +435,10 @@ struct MCPServerAddView: View {
         NavigationStack {
             Form {
                 Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
-                    TextField("Server Name", text: $server.name)
+                    TextField("Server Name *", text: $server.name)
                         .autocapitalization(.none)
                     
-                    TextField("MCP SSE URL", text: $server.sseURL)
+                    TextField("MCP SSE URL *", text: $server.sseURL)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                         .keyboardType(.URL)
@@ -497,6 +497,8 @@ struct MCPServerAddView: View {
                         onSave(server)
                         dismiss()
                     }
+                    .disabled(server.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+                              server.sseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .sheet(isPresented: $showTokenInput) {
