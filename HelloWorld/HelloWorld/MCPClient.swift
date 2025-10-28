@@ -20,14 +20,12 @@ class MCPClient {
     func clearCache() {
         cachedTools.removeAll()
         lastMCPConfig.removeAll()
-        print("🗑️ MCP tools cache cleared")
     }
     
     // Clear cache for a specific server
     func clearCache(for serverID: UUID) {
         cachedTools.removeValue(forKey: serverID)
         lastMCPConfig.removeValue(forKey: serverID)
-        print("🗑️ MCP tools cache cleared for server: \(serverID)")
     }
     
     // Force refresh tools from server
@@ -64,12 +62,10 @@ class MCPClient {
                     if waitingForData {
                         if !trimmedLine.isEmpty && trimmedLine.hasPrefix("data: ") {
                             let endpoint = String(trimmedLine.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                            print("✅ Session endpoint found: \(endpoint)")
                             return endpoint
                         }
                     } else if trimmedLine == "event: endpoint" {
                         waitingForData = true
-                        print("📍 Found event: endpoint, waiting for data: line...")
                     }
                 }
                 lastLineIndex = lines.count - 1
@@ -91,16 +87,13 @@ class MCPClient {
         if let lastConfig = lastMCPConfig[serverConfig.id], lastConfig == currentConfig {
             // Config unchanged, check cache
             if let cached = cachedTools[serverConfig.id], !cached.isEmpty {
-                print("📦 Returning \(cached.count) cached tools from \(serverConfig.name)")
                 return cached
             }
         } else {
-            print("🔄 MCP configuration changed for \(serverConfig.name), clearing cache")
             cachedTools.removeValue(forKey: serverConfig.id)
         }
         
         // Fetch fresh tools
-        print("🔄 Fetching tools from MCP server: \(serverConfig.name)...")
         let tools = try await fetchToolsFromServer(serverConfig: serverConfig)
         cachedTools[serverConfig.id] = tools
         lastMCPConfig[serverConfig.id] = currentConfig
@@ -143,8 +136,6 @@ class MCPClient {
             return []
         }
         
-        print("✅ Got session endpoint: \(endpoint)")
-        
         // Step 3: Build full messages URL from base SSE URL
         // Extract base URL (before /sse suffix)
         var baseURLString = sseURL
@@ -168,9 +159,6 @@ class MCPClient {
             return []
         }
         
-        print("🔗 Sending tools/list to: \(fullURL)")
-        print("   Base URL: \(baseURLString)")
-        print("   Endpoint: \(trimmedEndpoint)")
         
         // Step 4: Initialize MCP session
         let initID = UUID().uuidString
@@ -292,7 +280,6 @@ class MCPClient {
             throw MCPError.invalidResponse
         }
         
-        print("📡 Messages Response Status: \(httpToolsResponse.statusCode)")
         
         guard (200...299).contains(httpToolsResponse.statusCode) else {
             throw MCPError.httpError(httpToolsResponse.statusCode)
@@ -338,7 +325,6 @@ class MCPClient {
             }
             
             if toolsDataBuffer.count > 16384 {
-                print("⚠️ SSE buffer too large, stopping")
                 break
             }
         }
@@ -348,7 +334,6 @@ class MCPClient {
             return []
         }
         
-        print("📄 SSE response data: \(responseData.prefix(200))...")
         
         guard let jsonData = responseData.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
@@ -356,7 +341,6 @@ class MCPClient {
             return []
         }
         
-        print("📦 Response keys: \(json.keys.joined(separator: ", "))")
         
         var tools: [MCPTool] = []
         if let result = json["result"] as? [String: Any],
@@ -364,7 +348,6 @@ class MCPClient {
             tools = parseTools(toolsArray)
         }
         
-        print("✅ Fetched \(tools.count) tools")
         return tools
     }
     
@@ -402,7 +385,6 @@ class MCPClient {
             throw MCPError.invalidURL
         }
         
-        print("🔧 Calling tool: \(name)")
         
         var request = URLRequest(url: baseURL)
         request.httpMethod = "GET"
