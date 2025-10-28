@@ -29,15 +29,12 @@ BASE_BUILD=1000  # Start from 1000 to avoid conflicts
 BUILD_NUMBER=$((BASE_BUILD + COMMIT_COUNT))
 echo "Build number: $BUILD_NUMBER"
 
-# Change to directory with Xcode project for agvtool
-cd "$SRCROOT"
-
 # Use agvtool to set the versions
 echo "Setting marketing version to: $MARKETING_VERSION"
-xcrun agvtool new-marketing-version "$MARKETING_VERSION" -project HelloWorld.xcodeproj
+xcrun agvtool new-marketing-version "$MARKETING_VERSION"
 
 echo "Setting build number to: $BUILD_NUMBER"
-xcrun agvtool new-version -all "$BUILD_NUMBER" -project HelloWorld.xcodeproj
+xcrun agvtool new-version -all "$BUILD_NUMBER"
 
 echo "=== Version sync complete ==="
 echo "Final version: $MARKETING_VERSION ($BUILD_NUMBER)"
