@@ -7,8 +7,8 @@ set -euo pipefail
 
 echo "=== Modern Version Sync Script ==="
 
-# Get git information - use the project root
-cd "$SRCROOT"
+# Get git information - use the project root (parent of SRCROOT)
+cd "$SRCROOT/.."
 GIT_DIR=".git"
 export GIT_DIR
 
@@ -34,10 +34,10 @@ cd "$SRCROOT"
 
 # Use agvtool to set the versions
 echo "Setting marketing version to: $MARKETING_VERSION"
-xcrun agvtool new-marketing-version "$MARKETING_VERSION" -project HelloWorld.xcodeproj
+xcrun agvtool new-marketing-version "$MARKETING_VERSION"
 
 echo "Setting build number to: $BUILD_NUMBER"
-xcrun agvtool new-version -all "$BUILD_NUMBER" -project HelloWorld.xcodeproj
+xcrun agvtool new-version -all "$BUILD_NUMBER"
 
 echo "=== Version sync complete ==="
 echo "Final version: $MARKETING_VERSION ($BUILD_NUMBER)"
