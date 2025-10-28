@@ -64,6 +64,7 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
+				DD5F60B12EB10CA10043B79F /* Set Version from Git */,
 			);
 			buildRules = (
 			);
@@ -126,6 +127,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DD5F60B12EB10CA10043B79F /* Set Version from Git */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Set Version from Git";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "#!/bin/bash\n\n# Get the latest Git tag as the marketing version (e.g., 1.0.0)\nMARKETING_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo \"1.0\")\n\n# Get the number of commits as the build number\nBUILD_NUMBER=$(git rev-list --count HEAD 2>/dev/null || echo \"1\")\n\n# Path to your Info.plist\nINFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\necho \"Setting version: $MARKETING_VERSION, build: $BUILD_NUMBER\"\necho \"Info.plist path: $INFO_PLIST\"\n\n# Update the marketing version in Info.plist\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $MARKETING_VERSION\" \"$INFO_PLIST\"\n\n# Update the build number in Info.plist\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$INFO_PLIST\"\n\necho \"Version updated successfully\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
