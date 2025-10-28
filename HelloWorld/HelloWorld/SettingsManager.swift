@@ -75,11 +75,6 @@ class SettingsManager: ObservableObject {
         }
     }
     
-    @Published var selectedTools: [String] {
-        didSet {
-            UserDefaults.standard.set(selectedTools, forKey: "selectedTools")
-        }
-    }
     
     @Published var voiceEnabled: Bool {
         didSet {
@@ -124,7 +119,6 @@ class SettingsManager: ObservableObject {
         self.mcpSSEURL = UserDefaults.standard.string(forKey: "mcpSSEURL") ?? ""
         self.mcpAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? ""
         self.mcpUseAuth = UserDefaults.standard.bool(forKey: "mcpUseAuth")
-        self.selectedTools = UserDefaults.standard.array(forKey: "selectedTools") as? [String] ?? []
         
         self.voiceEnabled = UserDefaults.standard.bool(forKey: "voiceEnabled")
         self.voiceServiceURL = UserDefaults.standard.string(forKey: "voiceServiceURL") ?? "http://192.168.1.232:8005"
@@ -151,6 +145,7 @@ class SettingsManager: ObservableObject {
             let oldAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? ""
             let oldUseAuth = UserDefaults.standard.bool(forKey: "mcpUseAuth")
             let oldEnabled = UserDefaults.standard.bool(forKey: "mcpEnabled")
+            let oldSelectedTools = UserDefaults.standard.array(forKey: "selectedTools") as? [String] ?? []
             
             if !oldSSEURL.isEmpty {
                 let server = MCPServerConfig(
@@ -158,7 +153,8 @@ class SettingsManager: ObservableObject {
                     sseURL: oldSSEURL,
                     accessToken: oldAccessToken,
                     useAuth: oldUseAuth,
-                    enabled: oldEnabled
+                    enabled: oldEnabled,
+                    selectedTools: oldSelectedTools
                 )
                 self.mcpServers.append(server)
             }

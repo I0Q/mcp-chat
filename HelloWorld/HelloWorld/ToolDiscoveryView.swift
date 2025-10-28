@@ -16,6 +16,12 @@ struct ToolDiscoveryView: View {
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
     
+    let serverConfig: MCPServerConfig
+    
+    init(serverConfig: MCPServerConfig) {
+        self.serverConfig = serverConfig
+    }
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -120,26 +126,16 @@ struct ToolDiscoveryView: View {
                 }
             }
             .onAppear {
-                // Load current selection
-                selectedTools = Set(settings.selectedTools)
+                // Load current selection for this server
+                selectedTools = Set(serverConfig.selectedTools)
                 
-                // Load cached tools by default from all enabled MCP servers
+                // Load cached tools by default from this specific server
                 Task {
                     do {
-                        var allTools: [MCPTool] = []
-                        
-                        // Fetch tools from all enabled MCP servers
-                        for serverConfig in settings.getEnabledMCPServers() {
-                            do {
-                                let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
-                                allTools.append(contentsOf: tools)
-                            } catch {
-                                print("⚠️ Could not fetch cached tools from \(serverConfig.name): \(error)")
-                            }
-                        }
+                        let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
                         
                         await MainActor.run {
-                            discoveredTools = allTools
+                            discoveredTools = tools
                             isLoadingCached = false
                         }
                     } catch {
@@ -160,24 +156,13 @@ struct ToolDiscoveryView: View {
         
         Task {
             do {
-                var allTools: [MCPTool] = []
-                
-                // Fetch tools from all enabled MCP servers
-                for serverConfig in settings.getEnabledMCPServers() {
-                    do {
-                        let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
-                        allTools.append(contentsOf: tools)
-                        print("📦 Discovered \(tools.count) tools from \(serverConfig.name)")
-                    } catch {
-                        print("⚠️ Could not fetch tools from \(serverConfig.name): \(error)")
-                    }
-                }
+                let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
                 
                 await MainActor.run {
-                    discoveredTools = allTools
+                    discoveredTools = tools
                     isDiscovering = false
                     
-                    if allTools.isEmpty {
+                    if tools.isEmpty {
                         errorMessage = "No tools discovered. Check your MCP server configuration."
                     }
                 }
@@ -191,12 +176,21 @@ struct ToolDiscoveryView: View {
     }
     
     private func saveTools() {
-        settings.selectedTools = Array(selectedTools)
+        // Update the server's selected tools
+        var updatedServer = serverConfig
+        updatedServer.selectedTools = Array(selectedTools)
+        settings.updateMCPServer(updatedServer)
         dismiss()
     }
 }
 
 #Preview {
-    ToolDiscoveryView()
+    ToolDiscoveryView(serverConfig: MCPServerConfig(
+        name: "Preview Server",
+        sseURL: "http://localhost:3000",
+        accessToken: "",
+        useAuth: false,
+        enabled: true
+    ))
 }
 

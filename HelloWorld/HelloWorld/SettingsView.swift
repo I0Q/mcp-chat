@@ -87,18 +87,6 @@ struct SettingsView: View {
                         }
                     }
                     
-                    NavigationLink(destination: ToolDiscoveryView()) {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                            Text("Discover & Select Tools")
-                            Spacer()
-                            if !settings.selectedTools.isEmpty {
-                                Text("(\(settings.selectedTools.count))")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    
                     Toggle("Show MCP Tools in Reasoning", isOn: $settings.showMCPInReasoning)
                 }
             }
@@ -258,6 +246,20 @@ struct MCPServerEditView: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.green)
                             }
+                        }
+                    }
+                }
+            }
+            
+            Section(header: Text("Tools")) {
+                NavigationLink(destination: ToolDiscoveryView(serverConfig: server)) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                        Text("Discover & Select Tools")
+                        Spacer()
+                        if !server.selectedTools.isEmpty {
+                            Text("(\(server.selectedTools.count))")
+                                .foregroundColor(.secondary)
                         }
                     }
                 }

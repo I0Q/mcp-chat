@@ -50,12 +50,16 @@ class APIService {
         if settings.mcpEnabled {
             var allTools: [MCPTool] = []
             
-            // Fetch tools from all enabled MCP servers
+            // Fetch tools from all enabled MCP servers, filtering by selected tools
             for serverConfig in settings.getEnabledMCPServers() {
                 do {
                     let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
-                    allTools.append(contentsOf: tools)
-                    print("📦 Fetched \(tools.count) tools from \(serverConfig.name)")
+                    // Filter tools based on server's selected tools
+                    let selectedTools = tools.filter { tool in
+                        serverConfig.selectedTools.contains(tool.name)
+                    }
+                    allTools.append(contentsOf: selectedTools)
+                    print("📦 Fetched \(tools.count) tools from \(serverConfig.name), using \(selectedTools.count) selected tools")
                 } catch {
                     print("⚠️ Could not fetch tools from \(serverConfig.name): \(error)")
                 }
@@ -78,7 +82,7 @@ class APIService {
                         "function": function
                     ] as [String: Any]
                 }
-                print("🔧 Sending \(allTools.count) total tools to LLM")
+                print("🔧 Sending \(allTools.count) total selected tools to LLM")
             }
         }
         

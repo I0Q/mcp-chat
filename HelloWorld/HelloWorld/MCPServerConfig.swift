@@ -14,13 +14,15 @@ struct MCPServerConfig: Codable, Identifiable, Equatable {
     var accessToken: String
     var useAuth: Bool
     var enabled: Bool
+    var selectedTools: [String]
     
-    init(id: UUID = UUID(), name: String, sseURL: String, accessToken: String = "", useAuth: Bool = false, enabled: Bool = true) {
+    init(id: UUID = UUID(), name: String, sseURL: String, accessToken: String = "", useAuth: Bool = false, enabled: Bool = true, selectedTools: [String] = []) {
         self.id = id
         self.name = name
         self.sseURL = sseURL
         self.accessToken = accessToken
         self.useAuth = useAuth
         self.enabled = enabled
+        self.selectedTools = selectedTools
     }
 }
