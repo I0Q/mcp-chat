@@ -47,7 +47,7 @@ struct SettingsView: View {
                 
                 if settings.mcpEnabled {
                     ForEach($settings.mcpServers) { $server in
-                        NavigationLink(destination: MCPServerEditView(server: $server)) {
+                        NavigationLink(destination: MCPServerEditView(serverID: server.id)) {
                             HStack {
                                 if server.enabled {
                                     Image(systemName: "checkmark.circle.fill")
@@ -59,12 +59,10 @@ struct SettingsView: View {
                                 Text(server.name)
                                     .foregroundColor(server.enabled ? .primary : .secondary)
                                 Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
                             }
-                        }
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            settings.deleteMCPServer(settings.mcpServers[index])
                         }
                     }
                     
@@ -203,112 +201,165 @@ struct SettingsView: View {
 }
 
 struct MCPServerEditView: View {
-    @Binding var server: MCPServerConfig
+    let serverID: UUID
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.dismiss) private var dismiss
     @State private var showTokenInput = false
     @State private var tokenInput = ""
     @State private var showToken = false
-    @ObservedObject private var settings = SettingsManager.shared
-    @Environment(\.dismiss) private var dismiss
     @State private var cachedToken = ""
+    @State private var showDeleteConfirmation = false
+    
+    private var server: MCPServerConfig? {
+        settings.mcpServers.first { $0.id == serverID }
+    }
     
     var body: some View {
-        Form {
-            Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
-                TextField("Server Name", text: $server.name)
-                    .autocapitalization(.none)
-                
-                TextField("MCP SSE URL", text: $server.sseURL)
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                    .keyboardType(.URL)
-                    .textContentType(.URL)
-                
-                Toggle("Enable Server", isOn: $server.enabled)
-                
-                Toggle("Use Authentication", isOn: $server.useAuth)
-            }
-            
-            if server.useAuth {
-                Section(header: Text("Authentication")) {
-                    Button(action: {
-                        cachedToken = server.accessToken
-                        tokenInput = server.accessToken
-                        showTokenInput = true
-                    }) {
-                        HStack {
-                            Image(systemName: "key.fill")
-                            Text(server.accessToken.isEmpty ? "Set Access Token" : "Update Access Token")
-                            Spacer()
-                            if !server.accessToken.isEmpty {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Section(header: Text("Tools")) {
-                NavigationLink(destination: ToolDiscoveryView(serverConfig: server)) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                        Text("Discover & Select Tools")
-                        Spacer()
-                        if !server.selectedTools.isEmpty {
-                            Text("(\(server.selectedTools.count))")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle("Edit MCP Server")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showTokenInput) {
-            NavigationStack {
+        Group {
+            if let server = server {
                 Form {
-                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                        if showToken {
-                            Text(cachedToken)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        } else {
-                            SecureField("Token", text: $tokenInput)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                    Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
+                        TextField("Server Name", text: Binding(
+                            get: { server.name },
+                            set: { updateServer { $0.name = $1 } }
+                        ))
+                        .autocapitalization(.none)
+                        
+                        TextField("MCP SSE URL", text: Binding(
+                            get: { server.sseURL },
+                            set: { updateServer { $0.sseURL = $1 } }
+                        ))
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        
+                        Toggle("Enable Server", isOn: Binding(
+                            get: { server.enabled },
+                            set: { updateServer { $0.enabled = $1 } }
+                        ))
+                        
+                        Toggle("Use Authentication", isOn: Binding(
+                            get: { server.useAuth },
+                            set: { updateServer { $0.useAuth = $1 } }
+                        ))
+                    }
+                    
+                    if server.useAuth {
+                        Section(header: Text("Authentication")) {
+                            Button(action: {
+                                cachedToken = server.accessToken
+                                tokenInput = server.accessToken
+                                showTokenInput = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "key.fill")
+                                    Text(server.accessToken.isEmpty ? "Set Access Token" : "Update Access Token")
+                                    Spacer()
+                                    if !server.accessToken.isEmpty {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                            }
                         }
                     }
                     
-                    Section {
+                    Section(header: Text("Tools")) {
+                        NavigationLink(destination: ToolDiscoveryView(serverConfig: server)) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                Text("Discover & Select Tools")
+                                Spacer()
+                                if !server.selectedTools.isEmpty {
+                                    Text("(\(server.selectedTools.count))")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Section(header: Text("Danger Zone")) {
                         Button(action: {
-                            authenticateAndShowToken()
+                            showDeleteConfirmation = true
                         }) {
                             HStack {
-                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                Text(showToken ? "Hide Token" : "Show Token")
+                                Image(systemName: "trash.fill")
+                                    .foregroundColor(.red)
+                                Text("Delete Server")
+                                    .foregroundColor(.red)
+                                Spacer()
                             }
                         }
                     }
                 }
-                .navigationTitle("Access Token")
+                .navigationTitle("Edit MCP Server")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            showTokenInput = false
-                        }
+                .alert("Delete Server", isPresented: $showDeleteConfirmation) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Delete", role: .destructive) {
+                        settings.deleteMCPServer(server)
+                        dismiss()
                     }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            server.accessToken = tokenInput
-                            settings.updateMCPServer(server)
-                            showTokenInput = false
+                } message: {
+                    Text("Are you sure you want to delete \(server.name)? This action cannot be undone.")
+                }
+                .sheet(isPresented: $showTokenInput) {
+                    NavigationStack {
+                        Form {
+                            Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                                if showToken {
+                                    Text(cachedToken)
+                                        .font(.system(.body, design: .monospaced))
+                                        .textSelection(.enabled)
+                                } else {
+                                    SecureField("Token", text: $tokenInput)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                }
+                            }
+                            
+                            Section {
+                                Button(action: {
+                                    authenticateAndShowToken()
+                                }) {
+                                    HStack {
+                                        Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                        Text(showToken ? "Hide Token" : "Show Token")
+                                    }
+                                }
+                            }
                         }
+                        .navigationTitle("Access Token")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") {
+                                    showTokenInput = false
+                                }
+                            }
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Save") {
+                                    updateServer { $0.accessToken = tokenInput }
+                                    showTokenInput = false
+                                }
+                            }
+                        }
+                        .presentationDetents([.medium])
                     }
                 }
-                .presentationDetents([.medium])
+            } else {
+                Text("Server not found")
+                    .foregroundColor(.secondary)
             }
         }
+    }
+    
+    private func updateServer(_ update: (inout MCPServerConfig) -> Void) {
+        guard let index = settings.mcpServers.firstIndex(where: { $0.id == serverID }) else { return }
+        var updatedServer = settings.mcpServers[index]
+        update(&updatedServer)
+        settings.updateMCPServer(updatedServer)
     }
     
     private func authenticateAndShowToken() {
