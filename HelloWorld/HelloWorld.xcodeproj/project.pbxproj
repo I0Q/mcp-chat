@@ -64,6 +64,7 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
+				DD5F60B12EB10CA10043B79F /* Write Git Branch */,
 			);
 			buildRules = (
 			);
@@ -126,6 +127,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DD5F60B12EB10CA10043B79F /* Write Git Branch */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Write Git Branch";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "#!/bin/bash\n\n# Get the current Git branch name\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\n\n# Define the path to the branch name file within the app's sandbox\nBRANCH_NAME_FILE=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/branch_name.txt\"\n\n# Write the branch name to the file\necho \"$GIT_BRANCH\" > \"$BRANCH_NAME_FILE\"\n\necho \"Wrote branch name '$GIT_BRANCH' to $BRANCH_NAME_FILE\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
