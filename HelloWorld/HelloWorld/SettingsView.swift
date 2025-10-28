@@ -59,9 +59,6 @@ struct SettingsView: View {
                                 Text(server.name)
                                     .foregroundColor(server.enabled ? .primary : .secondary)
                                 Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.secondary)
-                                    .font(.caption)
                             }
                         }
                     }
