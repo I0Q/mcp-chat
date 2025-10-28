@@ -4,8 +4,8 @@
 import Foundation
 
 struct GeneratedVersion {
-    static let version = "multi-mcp-5c06be7"
-    static let buildNumber = "216"
+    static let version = "multi-mcp-eabe196"
+    static let buildNumber = "217"
     static let branch = "multi-mcp"
-    static let hash = "5c06be7"
+    static let hash = "eabe196"
 }

@@ -26,7 +26,7 @@ BUILD_NUMBER=$COMMIT_COUNT
 echo "Build number: $BUILD_NUMBER"
 
 # Create a version file that the app can read at runtime
-VERSION_FILE="HelloWorld/GeneratedVersion.swift"
+VERSION_FILE="HelloWorld/HelloWorld/GeneratedVersion.swift"
 
 echo "Creating $VERSION_FILE..."
 
