@@ -64,7 +64,6 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
-				DD5F60B12EB10CA10043B79F /* Set Version from Git */,
 			);
 			buildRules = (
 			);
@@ -127,27 +126,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		DD5F60B12EB10CA10043B79F /* Set Version from Git */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Set Version from Git";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "#!/bin/bash\n\n# Get the latest Git tag as the marketing version (e.g., 1.0.0)\nMARKETING_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo \"1.0\")\n\n# Get the number of commits as the build number\nBUILD_NUMBER=$(git rev-list --count HEAD 2>/dev/null || echo \"1\")\n\n# Path to your Info.plist\nINFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\necho \"=== Version Script Debug ===\"\necho \"Setting version: $MARKETING_VERSION, build: $BUILD_NUMBER\"\necho \"Info.plist path: $INFO_PLIST\"\necho \"TARGET_BUILD_DIR: ${TARGET_BUILD_DIR}\"\necho \"INFOPLIST_PATH: ${INFOPLIST_PATH}\"\necho \"Current directory: $(pwd)\"\necho \"Files in TARGET_BUILD_DIR:\"\nls -la \"${TARGET_BUILD_DIR}\" || echo \"TARGET_BUILD_DIR not accessible\"\n\n# Check if Info.plist exists\nif [ -f \"$INFO_PLIST\" ]; then\n    echo \"Info.plist found at: $INFO_PLIST\"\n    echo \"Current CFBundleShortVersionString:\"\n    /usr/libexec/PlistBuddy -c \"Print :CFBundleShortVersionString\" \"$INFO_PLIST\" 2>/dev/null || echo \"Not found\"\n    \n    # Update the marketing version in Info.plist\n    echo \"Updating CFBundleShortVersionString to: $MARKETING_VERSION\"\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString $MARKETING_VERSION\" \"$INFO_PLIST\"\n    \n    # Update the build number in Info.plist\n    echo \"Updating CFBundleVersion to: $BUILD_NUMBER\"\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUMBER\" \"$INFO_PLIST\"\n    \n    echo \"Version updated successfully\"\nelse\n    echo \"ERROR: Info.plist not found at $INFO_PLIST\"\n    echo \"Looking for Info.plist files:\"\n    find \"${TARGET_BUILD_DIR}\" -name \"Info.plist\" 2>/dev/null || echo \"No Info.plist files found\"\nfi\n\necho \"=== End Version Script ===\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
@@ -283,7 +261,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = "$(shell git rev-list --count HEAD 2>/dev/null || echo '1')";
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
@@ -313,7 +291,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "";
+				MARKETING_VERSION = "$(shell git describe --tags --abbrev=0 2>/dev/null || echo '1.0')";
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -337,7 +315,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = "$(shell git rev-list --count HEAD 2>/dev/null || echo '1')";
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
@@ -367,7 +345,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "";
+				MARKETING_VERSION = "$(shell git describe --tags --abbrev=0 2>/dev/null || echo '1.0')";
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
