@@ -2,6 +2,7 @@
 
 # Git-based versioning script
 # This script updates Xcode build settings based on git tags and commits
+# Run this BEFORE building in Xcode
 
 set -euo pipefail
 
@@ -25,40 +26,31 @@ echo "Total commits: $COMMIT_COUNT"
 BUILD_NUMBER=$COMMIT_COUNT
 echo "Build number: $BUILD_NUMBER"
 
-# Create a version plist file that the app can read
-VERSION_PLIST="$TARGET_BUILD_DIR/version.plist"
+# Update the project.pbxproj file directly
+PROJECT_FILE="HelloWorld/HelloWorld.xcodeproj/project.pbxproj"
 
-echo "Creating $VERSION_PLIST..."
-
-cat > "$VERSION_PLIST" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>version</key>
-    <string>$MARKETING_VERSION</string>
-    <key>buildNumber</key>
-    <string>$BUILD_NUMBER</string>
-    <key>branch</key>
-    <string>$GIT_BRANCH</string>
-    <key>hash</key>
-    <string>$GIT_HASH</string>
-</dict>
-</plist>
-EOF
-
-echo "✅ Created version.plist with:"
-echo "   Version: $MARKETING_VERSION"
-echo "   Build: $BUILD_NUMBER"
-echo "   Branch: $GIT_BRANCH"
-echo "   Hash: $GIT_HASH"
-
-# Copy the plist to the app bundle
-if [ -d "$CODESIGNING_FOLDER_PATH" ]; then
-    cp "$VERSION_PLIST" "$CODESIGNING_FOLDER_PATH/"
-    echo "✅ Copied version.plist to app bundle"
+if [ -f "$PROJECT_FILE" ]; then
+    echo "Updating $PROJECT_FILE..."
+    
+    # Create backup
+    cp "$PROJECT_FILE" "$PROJECT_FILE.backup"
+    
+    # Use sed to update MARKETING_VERSION
+    sed -i.tmp "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $MARKETING_VERSION;/g" "$PROJECT_FILE"
+    
+    # Use sed to update CURRENT_PROJECT_VERSION
+    sed -i.tmp "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PROJECT_FILE"
+    
+    # Clean up temp files
+    rm -f "$PROJECT_FILE.tmp"
+    
+    echo "✅ Updated MARKETING_VERSION to: $MARKETING_VERSION"
+    echo "✅ Updated CURRENT_PROJECT_VERSION to: $BUILD_NUMBER"
+    echo "Final version: $MARKETING_VERSION ($BUILD_NUMBER)"
 else
-    echo "⚠️  App bundle not found, plist will be copied later"
+    echo "❌ Project file not found: $PROJECT_FILE"
+    exit 1
 fi
 
 echo "=== Git versioning complete ==="
+echo "Now build in Xcode to see the updated version!"
