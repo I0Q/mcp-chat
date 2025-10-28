@@ -107,7 +107,7 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Information"), footer: Text("Version \(GeneratedVersion.branchName)")) {
+            Section(header: Text("Information"), footer: Text("Version \(GeneratedVersion.versionString)")) {
                 HStack {
                     Text("Server Status")
                     Spacer()

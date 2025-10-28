@@ -145,7 +145,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "#!/bin/bash\n\n# Get the current Git branch name\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\n\n# Define the path to the branch name file within the app's sandbox\nBRANCH_NAME_FILE=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/branch_name.txt\"\n\n# Write the branch name to the file\necho \"$GIT_BRANCH\" > \"$BRANCH_NAME_FILE\"\n\necho \"Wrote branch name '$GIT_BRANCH' to $BRANCH_NAME_FILE\"\n";
+			shellScript = "#!/bin/bash\n\n# Get the current Git branch name and hash\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\nGIT_HASH=$(git rev-parse --short HEAD)\n\n# Define the path to the git info file within the app's sandbox\nGIT_INFO_FILE=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/git_info.txt\"\n\n# Write both branch name and hash to the file\necho \"$GIT_BRANCH\" > \"$GIT_INFO_FILE\"\necho \"$GIT_HASH\" >> \"$GIT_INFO_FILE\"\n\necho \"Wrote git info: branch='$GIT_BRANCH', hash='$GIT_HASH' to $GIT_INFO_FILE\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
