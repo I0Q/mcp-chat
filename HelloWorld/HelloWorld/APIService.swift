@@ -159,7 +159,7 @@ class APIService {
             ]
             messages.append(assistantMessage)
             
-            var toolMessage: [String: Any] = [
+            let toolMessage: [String: Any] = [
                 "role": "tool",
                 "name": toolCall.function.name,
                 "content": toolResult,
