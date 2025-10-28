@@ -23,24 +23,19 @@ for plist in "$target_plist" "$dsym_plist"; do
     echo "Setting CFBundleVersion to: $number_of_commits"
     echo "Setting CFBundleShortVersionString to: ${git_release_version#*v}"
     
-    # Try using defaults first (works better with sandboxing)
-    defaults write "$plist" CFBundleVersion "$number_of_commits" 2>/dev/null || echo "defaults write failed for CFBundleVersion"
-    defaults write "$plist" CFBundleShortVersionString "${git_release_version#*v}" 2>/dev/null || echo "defaults write failed for CFBundleShortVersionString"
+    # Try using sed to modify the plist directly (bypasses sandboxing)
+    echo "Attempting sed modification..."
     
-    # Fallback to PlistBuddy if defaults fails
-    if ! defaults read "$plist" CFBundleVersion >/dev/null 2>&1; then
-      echo "Falling back to PlistBuddy for CFBundleVersion"
-      /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $number_of_commits" "$plist" 2>/dev/null || echo "PlistBuddy also failed for CFBundleVersion"
-    fi
+    # Create a backup
+    cp "$plist" "$plist.backup"
     
-    if ! defaults read "$plist" CFBundleShortVersionString >/dev/null 2>&1; then
-      echo "Falling back to PlistBuddy for CFBundleShortVersionString"
-      /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${git_release_version#*v}" "$plist" 2>/dev/null || echo "PlistBuddy also failed for CFBundleShortVersionString"
-    fi
+    # Use sed to replace the values
+    sed -i '' "s/<key>CFBundleVersion<\/key>.*<string>.*<\/string>/<key>CFBundleVersion<\/key>\n\t<string>$number_of_commits<\/string>/" "$plist"
+    sed -i '' "s/<key>CFBundleShortVersionString<\/key>.*<string>.*<\/string>/<key>CFBundleShortVersionString<\/key>\n\t<string>${git_release_version#*v}<\/string>/" "$plist"
     
-    # Verify the values were set
-    echo "Final CFBundleVersion: $(defaults read "$plist" CFBundleVersion 2>/dev/null || echo 'NOT SET')"
-    echo "Final CFBundleShortVersionString: $(defaults read "$plist" CFBundleShortVersionString 2>/dev/null || echo 'NOT SET')"
+    # Verify the changes
+    echo "Final CFBundleVersion: $(grep -A1 '<key>CFBundleVersion</key>' "$plist" | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')"
+    echo "Final CFBundleShortVersionString: $(grep -A1 '<key>CFBundleShortVersionString</key>' "$plist" | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')"
   else
     echo "Plist not found: $plist"
   fi
