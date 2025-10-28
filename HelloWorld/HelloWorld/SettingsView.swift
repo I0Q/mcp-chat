@@ -148,48 +148,47 @@ struct SettingsView: View {
                 Text(alertMessage)
             }
             .sheet(isPresented: $showTokenInput) {
-                NavigationView {
-                    Form {
-                        Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                            if showToken {
-                                Text(settings.mcpAccessToken)
-                                    .font(.system(.body, design: .monospaced))
-                                    .textSelection(.enabled)
-                            } else {
-                                SecureField("Token", text: $tokenInput)
-                                    .autocapitalization(.none)
-                                    .disableAutocorrection(true)
-                            }
-                        }
-                        
-                        Section {
-                            Button(action: {
-                                authenticateAndShowToken()
-                            }) {
-                                HStack {
-                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                    Text(showToken ? "Hide Token" : "Show Token")
-                                }
-                            }
+                Form {
+                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                        if showToken {
+                            Text(settings.mcpAccessToken)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                        } else {
+                            SecureField("Token", text: $tokenInput)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
                         }
                     }
-                    .navigationTitle("Access Token")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") {
-                                showTokenInput = false
-                            }
-                        }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Save") {
-                                settings.mcpAccessToken = tokenInput
-                                showTokenInput = false
+                    
+                    Section {
+                        Button(action: {
+                            authenticateAndShowToken()
+                        }) {
+                            HStack {
+                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                Text(showToken ? "Hide Token" : "Show Token")
                             }
                         }
                     }
                 }
+                .navigationTitle("Access Token")
+                .navigationBarTitleDisplayMode(.inline)
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            showTokenInput = false
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            settings.mcpAccessToken = tokenInput
+                            showTokenInput = false
+                        }
+                    }
+                }
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
