@@ -66,13 +66,14 @@ struct SettingsView: View {
                     }
                     
                     Button(action: {
-                        newServer = MCPServerConfig(
+                        let server = MCPServerConfig(
                             name: "New MCP Server",
                             sseURL: "",
                             accessToken: "",
                             useAuth: false,
                             enabled: true
                         )
+                        newServer = server
                         showAddServer = true
                     }) {
                         HStack {
@@ -150,6 +151,9 @@ struct SettingsView: View {
                     } onCancel: {
                         self.newServer = nil
                     }
+                } else {
+                    // Fallback in case newServer is nil
+                    Text("Loading...")
                 }
             }
             .onChange(of: settings.serverURL) {
