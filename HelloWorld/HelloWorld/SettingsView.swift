@@ -420,6 +420,12 @@ struct MCPServerAddView: View {
     let onSave: (MCPServerConfig) -> Void
     let onCancel: () -> Void
     
+    init(newServer: MCPServerConfig, onSave: @escaping (MCPServerConfig) -> Void, onCancel: @escaping () -> Void) {
+        _server = State(initialValue: newServer)
+        self.onSave = onSave
+        self.onCancel = onCancel
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
