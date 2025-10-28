@@ -64,7 +64,6 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
-				DD5F60B12EB10CA10043B79F /* Set Version from Git */,
 			);
 			buildRules = (
 			);
@@ -127,27 +126,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		DD5F60B12EB10CA10043B79F /* Set Version from Git */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Set Version from Git";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\n\n# Extract the current Git branch name\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\n\necho \"Setting version to: ${GIT_BRANCH}\"\n\n# Define the path to the Info.plist in the app bundle\nINFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\necho \"Info.plist path: ${INFO_PLIST}\"\n\n# Update the CFBundleShortVersionString with the Git branch name\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString ${GIT_BRANCH}\" \"${INFO_PLIST}\"\n\necho \"Successfully set version to: ${GIT_BRANCH}\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
@@ -313,7 +291,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = "$(shell git rev-parse --abbrev-ref HEAD)";
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -367,7 +345,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = "$(shell git rev-parse --abbrev-ref HEAD)";
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
