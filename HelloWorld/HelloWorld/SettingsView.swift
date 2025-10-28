@@ -144,16 +144,17 @@ struct SettingsView: View {
                 Text(alertMessage)
             }
             .sheet(isPresented: $showAddServer) {
-                if let newServer = newServer {
-                    MCPServerAddView(newServer: newServer) { savedServer in
-                        settings.addMCPServer(savedServer)
-                        self.newServer = nil
-                    } onCancel: {
-                        self.newServer = nil
-                    }
-                } else {
-                    // Fallback in case newServer is nil
-                    Text("Loading...")
+                MCPServerAddView(newServer: newServer ?? MCPServerConfig(
+                    name: "New MCP Server",
+                    sseURL: "",
+                    accessToken: "",
+                    useAuth: false,
+                    enabled: true
+                )) { savedServer in
+                    settings.addMCPServer(savedServer)
+                    self.newServer = nil
+                } onCancel: {
+                    self.newServer = nil
                 }
             }
             .onChange(of: settings.serverURL) {
