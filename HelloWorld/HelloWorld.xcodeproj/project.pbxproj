@@ -282,8 +282,8 @@
 				IDEPreferLogStreaming = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to record and transcribe voice messages.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "This app uses Face ID to protect your access token when viewing it in settings.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to record and transcribe voice messages.";
 				INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
@@ -336,8 +336,8 @@
 				IDEPreferLogStreaming = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to record and transcribe voice messages.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "This app uses Face ID to protect your access token when viewing it in settings.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to record and transcribe voice messages.";
 				INFOPLIST_KEY_UILaunchScreen_StoryboardName = "Launch Screen";
 				INFOPLIST_KEY_UILaunchStoryboardName = "Launch Screen.storyboard";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;

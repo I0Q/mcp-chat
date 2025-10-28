@@ -11,28 +11,34 @@ import Foundation
 class MCPClient {
     static let shared = MCPClient()
     
-    private var cachedTools: [MCPTool] = []
-    private var lastMCPConfig: String = "" // Track when settings change
+    private var cachedTools: [UUID: [MCPTool]] = [:] // Cache tools per server
+    private var lastMCPConfig: [UUID: String] = [:] // Track when settings change
     
     private init() {}
     
     // Clear the tools cache (call when MCP settings change)
     func clearCache() {
         cachedTools.removeAll()
-        lastMCPConfig = ""
+        lastMCPConfig.removeAll()
         print("🗑️ MCP tools cache cleared")
     }
     
-    // Force refresh tools from server
-    func refreshTools() async throws -> [MCPTool] {
-        cachedTools.removeAll()
-        return try await fetchTools()
+    // Clear cache for a specific server
+    func clearCache(for serverID: UUID) {
+        cachedTools.removeValue(forKey: serverID)
+        lastMCPConfig.removeValue(forKey: serverID)
+        print("🗑️ MCP tools cache cleared for server: \(serverID)")
     }
     
-    // Generate a cache key from current MCP settings
-    private func getCurrentConfigKey() -> String {
-        let settings = SettingsManager.shared
-        return "\(settings.mcpSSEURL)|\(settings.mcpAccessToken)|\(settings.mcpEnabled)"
+    // Force refresh tools from server
+    func refreshTools(for serverConfig: MCPServerConfig) async throws -> [MCPTool] {
+        clearCache(for: serverConfig.id)
+        return try await fetchTools(for: serverConfig)
+    }
+    
+    // Generate a cache key from server config
+    private func getConfigKey(for config: MCPServerConfig) -> String {
+        return "\(config.sseURL)|\(config.accessToken)|\(config.enabled)"
     }
     
     // Helper to parse session endpoint from SSE bytes stream
@@ -74,35 +80,39 @@ class MCPClient {
         return nil
     }
     // Fetch tools from MCP server (with smart caching)
-    func fetchTools() async throws -> [MCPTool] {
-        let settings = SettingsManager.shared
-        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
-            cachedTools = []
+    func fetchTools(for serverConfig: MCPServerConfig) async throws -> [MCPTool] {
+        guard serverConfig.enabled, !serverConfig.sseURL.isEmpty else {
+            cachedTools.removeValue(forKey: serverConfig.id)
             return []
         }
         
         // Check if config changed - clear cache if it did
-        let currentConfig = getCurrentConfigKey()
-        if currentConfig != lastMCPConfig {
-            print("🔄 MCP configuration changed, clearing cache")
-            cachedTools.removeAll()
-        }
-        
-        // Return cached tools if available
-        if !cachedTools.isEmpty {
-            print("📦 Returning \(cachedTools.count) cached tools")
-            return cachedTools
+        let currentConfig = getConfigKey(for: serverConfig)
+        if let lastConfig = lastMCPConfig[serverConfig.id], lastConfig == currentConfig {
+            // Config unchanged, check cache
+            if let cached = cachedTools[serverConfig.id], !cached.isEmpty {
+                print("📦 Returning \(cached.count) cached tools from \(serverConfig.name)")
+                return cached
+            }
+        } else {
+            print("🔄 MCP configuration changed for \(serverConfig.name), clearing cache")
+            cachedTools.removeValue(forKey: serverConfig.id)
         }
         
         // Fetch fresh tools
-        print("🔄 Fetching tools from MCP server...")
-        cachedTools = try await fetchToolsFromServer(sseURL: settings.mcpSSEURL, accessToken: settings.mcpAccessToken)
-        lastMCPConfig = currentConfig
-        return cachedTools
+        print("🔄 Fetching tools from MCP server: \(serverConfig.name)...")
+        let tools = try await fetchToolsFromServer(serverConfig: serverConfig)
+        cachedTools[serverConfig.id] = tools
+        lastMCPConfig[serverConfig.id] = currentConfig
+        return tools
     }
     
     // Fetch tools from MCP server via SSE transport
-    private func fetchToolsFromServer(sseURL: String, accessToken: String) async throws -> [MCPTool] {
+    private func fetchToolsFromServer(serverConfig: MCPServerConfig) async throws -> [MCPTool] {
+        return try await fetchToolsFromServer(sseURL: serverConfig.sseURL, accessToken: serverConfig.accessToken, useAuth: serverConfig.useAuth)
+    }
+    
+    private func fetchToolsFromServer(sseURL: String, accessToken: String, useAuth: Bool) async throws -> [MCPTool] {
         // Home Assistant MCP server: session only valid while SSE connection is open
         // Strategy: Open SSE connection, get endpoint, make POST while connection is open
         
@@ -117,8 +127,7 @@ class MCPClient {
         request.setValue("2025-06-18", forHTTPHeaderField: "MCP-Protocol-Version")
         request.timeoutInterval = 30
         
-        let settings = SettingsManager.shared
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -377,18 +386,17 @@ class MCPClient {
         }
     }
     
-    // Call a tool on the MCP server (pulls from settings)
-    func callTool(name: String, arguments: [String: Any]) async throws -> String {
-        let settings = SettingsManager.shared
-        guard settings.mcpEnabled, !settings.mcpSSEURL.isEmpty else {
+    // Call a tool on the MCP server
+    func callTool(name: String, arguments: [String: Any], onServer serverConfig: MCPServerConfig) async throws -> String {
+        guard serverConfig.enabled, !serverConfig.sseURL.isEmpty else {
             throw MCPError.invalidURL
         }
         
-        return try await callToolOnServer(name: name, arguments: arguments, sseURL: settings.mcpSSEURL, accessToken: settings.mcpAccessToken)
+        return try await callToolOnServer(name: name, arguments: arguments, sseURL: serverConfig.sseURL, accessToken: serverConfig.accessToken, useAuth: serverConfig.useAuth)
     }
     
     // Call a tool on the MCP server
-    private func callToolOnServer(name: String, arguments: [String: Any], sseURL: String, accessToken: String) async throws -> String {
+    private func callToolOnServer(name: String, arguments: [String: Any], sseURL: String, accessToken: String, useAuth: Bool) async throws -> String {
         // Open a new SSE session for this tool call
         guard let baseURL = URL(string: sseURL) else {
             throw MCPError.invalidURL
@@ -402,8 +410,7 @@ class MCPClient {
         request.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         request.timeoutInterval = 30
         
-        let settings = SettingsManager.shared
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         

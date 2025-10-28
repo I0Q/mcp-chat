@@ -105,6 +105,14 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var mcpServers: [MCPServerConfig] {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(mcpServers) {
+                UserDefaults.standard.set(encoded, forKey: "mcpServers")
+            }
+        }
+    }
+    
     private init() {
         self.serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://192.168.1.232:1234"
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedModel") ?? "openai/gpt-oss-20b"
@@ -128,6 +136,58 @@ class SettingsManager: ObservableObject {
             UserDefaults.standard.set("openai/gpt-oss-120b", forKey: "selectedModel")
             self.selectedModel = "openai/gpt-oss-120b"
         }
+        
+        // Initialize or migrate MCP servers
+        if let data = UserDefaults.standard.data(forKey: "mcpServers"),
+           let servers = try? JSONDecoder().decode([MCPServerConfig].self, from: data) {
+            self.mcpServers = servers
+        } else {
+            // Migrate from old single-server setup
+            var servers: [MCPServerConfig] = []
+            let oldServerName = UserDefaults.standard.string(forKey: "mcpServerName") ?? "Main MCP Server"
+            let oldSSEURL = UserDefaults.standard.string(forKey: "mcpSSEURL") ?? ""
+            let oldAccessToken = UserDefaults.standard.string(forKey: "mcpAccessToken") ?? ""
+            let oldUseAuth = UserDefaults.standard.bool(forKey: "mcpUseAuth")
+            let oldEnabled = UserDefaults.standard.bool(forKey: "mcpEnabled")
+            
+            if !oldSSEURL.isEmpty {
+                let server = MCPServerConfig(
+                    name: oldServerName,
+                    sseURL: oldSSEURL,
+                    accessToken: oldAccessToken,
+                    useAuth: oldUseAuth,
+                    enabled: oldEnabled
+                )
+                servers.append(server)
+            }
+            
+            self.mcpServers = servers
+            
+            // Save migrated data
+            if let encoded = try? JSONEncoder().encode(servers) {
+                UserDefaults.standard.set(encoded, forKey: "mcpServers")
+            }
+        }
+    }
+    
+    // Helper methods for managing MCP servers
+    func addMCPServer(_ server: MCPServerConfig) {
+        mcpServers.append(server)
+    }
+    
+    func updateMCPServer(_ server: MCPServerConfig) {
+        if let index = mcpServers.firstIndex(where: { $0.id == server.id }) {
+            mcpServers[index] = server
+        }
+    }
+    
+    func deleteMCPServer(_ server: MCPServerConfig) {
+        mcpServers.removeAll(where: { $0.id == server.id })
+        MCPClient.shared.clearCache(for: server.id)
+    }
+    
+    func getEnabledMCPServers() -> [MCPServerConfig] {
+        return mcpServers.filter { $0.enabled }
     }
 }
 

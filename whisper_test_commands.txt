@@ -1,0 +1,31 @@
+# Commands to run on the server (192.168.1.232) to test the Whisper server
+
+# 1. Check if the container is running and listening on port 8005
+docker ps | grep whisper
+# or
+netstat -tuln | grep 8005
+
+# 2. Test localhost connection from inside the container's host
+curl -v http://localhost:8005
+
+# 3. Test with a simple audio file (run these on the server)
+# First, create a test audio file
+echo "Creating test audio file..."
+echo -e "RIFF\x24\x08\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xac\x00\x00\x88\x58\x01\x00\x02\x00\x10\x00data\x00\x08\x00\x00" > test.wav
+
+# 4. Test the /asr endpoint (most common for this service)
+curl -X POST http://localhost:8005/asr \
+  -F "audio_file=@test.wav" \
+  -F "task=transcribe" \
+  -F "response_format=json"
+
+# 5. Alternative: Test the OpenAI-compatible /v1/audio/transcriptions endpoint
+curl -X POST http://localhost:8005/v1/audio/transcriptions \
+  -F "file=@test.wav" \
+  -F "model=whisper-1" \
+  -F "response_format=json"
+
+# 6. Test with verbose output to see what's happening
+curl -v -X POST http://localhost:8005/asr \
+  -F "audio_file=@test.wav"
+
