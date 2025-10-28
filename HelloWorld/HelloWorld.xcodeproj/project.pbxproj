@@ -61,7 +61,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = DD4080042EAEA62D00AA422B /* Build configuration list for PBXNativeTarget "HelloWorld" */;
 			buildPhases = (
-				DD5F60B12EB10CA10043B79F /* Set Version */,
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
@@ -127,27 +126,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		DD5F60B12EB10CA10043B79F /* Set Version */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Set Version";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "#!/bin/bash\n# Get current git branch name\nBRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)\n\n# Update MARKETING_VERSION in project.pbxproj\nsed -i '' \"s/MARKETING_VERSION = .*/MARKETING_VERSION = $BRANCH_NAME;/g\" \"${SRCROOT}/HelloWorld.xcodeproj/project.pbxproj\"\n\necho \"Set version to: $BRANCH_NAME\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
