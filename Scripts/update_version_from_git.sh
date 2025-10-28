@@ -23,7 +23,7 @@ echo "Version: $MARKETING_VERSION"
 echo "Build: $BUILD_NUMBER"
 
 # Update project.pbxproj
-PROJECT_FILE="HelloWorld/HelloWorld.xcodeproj/project.pbxproj"
+PROJECT_FILE="HelloWorld.xcodeproj/project.pbxproj"
 
 if [ -f "$PROJECT_FILE" ]; then
     # Create backup
