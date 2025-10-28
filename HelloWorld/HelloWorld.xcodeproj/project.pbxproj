@@ -64,7 +64,6 @@
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
-				DD5F60B12EB10CA10043B79F /* Write Git Branch */,
 			);
 			buildRules = (
 			);
@@ -127,27 +126,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		DD5F60B12EB10CA10043B79F /* Write Git Branch */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Write Git Branch";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "#!/bin/bash\n\n# Get the current Git branch name and hash\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\nGIT_HASH=$(git rev-parse --short HEAD)\n\n# Define the path to the git info file within the app's sandbox\nGIT_INFO_FILE=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/git_info.txt\"\n\n# Write both branch name and hash to the file\necho \"$GIT_BRANCH\" > \"$GIT_INFO_FILE\"\necho \"$GIT_HASH\" >> \"$GIT_INFO_FILE\"\n\necho \"Wrote git info: branch='$GIT_BRANCH', hash='$GIT_HASH' to $GIT_INFO_FILE\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DD407FF52EAEA62C00AA422B /* Sources */ = {
@@ -313,7 +291,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "$(shell git rev-parse --abbrev-ref HEAD)";
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -367,7 +345,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = "$(shell git rev-parse --abbrev-ref HEAD)";
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
