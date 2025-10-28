@@ -153,49 +153,27 @@ struct SettingsView: View {
                 Text(alertMessage)
             }
             .sheet(isPresented: $showTokenInput) {
-                let _ = print("📄 Sheet is rendering - showTokenInput: true")
-                NavigationStack {
+                print("📄 Sheet body is rendering")
+                return NavigationStack {
                     Form {
-                        Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                            if showToken {
-                                Text(cachedToken)
-                                    .font(.system(.body, design: .monospaced))
-                                    .textSelection(.enabled)
-                            } else {
-                                SecureField("Token", text: $tokenInput)
-                                    .autocapitalization(.none)
-                                    .disableAutocorrection(true)
-                            }
+                        Section(header: Text("Access Token")) {
+                            SecureField("Token", text: $tokenInput)
                         }
                         
-                        Section {
-                            Button(action: {
-                                authenticateAndShowToken()
-                            }) {
-                                HStack {
-                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                    Text(showToken ? "Hide Token" : "Show Token")
-                                }
-                            }
-                        }
-                    }
-                    .navigationTitle("Access Token")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
+                        HStack {
                             Button("Cancel") {
                                 showTokenInput = false
                             }
-                        }
-                        ToolbarItem(placement: .confirmationAction) {
+                            Spacer()
                             Button("Save") {
                                 settings.mcpAccessToken = tokenInput
                                 showTokenInput = false
                             }
                         }
+                        .padding()
                     }
+                    .navigationTitle("Token")
+                    .presentationDetents([.medium])
                 }
             }
             .onChange(of: settings.serverURL) {
