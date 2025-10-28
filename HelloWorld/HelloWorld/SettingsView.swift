@@ -11,6 +11,8 @@ struct SettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var showAlert = false
     @State private var alertMessage = ""
+    @State private var showTokenInput = false
+    @State private var tokenInput = ""
     
     var body: some View {
         Form {
@@ -51,9 +53,20 @@ struct SettingsView: View {
                     Toggle("Use Authentication", isOn: $settings.mcpUseAuth)
                     
                     if settings.mcpUseAuth {
-                        SecureField("Access Token", text: $settings.mcpAccessToken)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
+                        Button(action: {
+                            tokenInput = settings.mcpAccessToken
+                            showTokenInput = true
+                        }) {
+                            HStack {
+                                Image(systemName: "key.fill")
+                                Text(settings.mcpAccessToken.isEmpty ? "Set Access Token" : "Update Access Token")
+                                Spacer()
+                                if !settings.mcpAccessToken.isEmpty {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+                        }
                     }
                     
                     NavigationLink(destination: ToolDiscoveryView()) {
@@ -128,6 +141,33 @@ struct SettingsView: View {
                 Button("OK") { }
             } message: {
                 Text(alertMessage)
+            }
+            .sheet(isPresented: $showTokenInput) {
+                NavigationView {
+                    Form {
+                        Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                            SecureField("Token", text: $tokenInput)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        }
+                    }
+                    .navigationTitle("Access Token")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showTokenInput = false
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                settings.mcpAccessToken = tokenInput
+                                showTokenInput = false
+                            }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
