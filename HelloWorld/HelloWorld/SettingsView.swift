@@ -484,11 +484,13 @@ struct MCPServerAddView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onCancel()
+                        dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(server)
+                        dismiss()
                     }
                 }
             }
