@@ -61,10 +61,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = DD4080042EAEA62D00AA422B /* Build configuration list for PBXNativeTarget "HelloWorld" */;
 			buildPhases = (
-				DD5F60B12EB10CA10043B79F /* Set build number */,
 				DD407FF52EAEA62C00AA422B /* Sources */,
 				DD407FF62EAEA62C00AA422B /* Frameworks */,
 				DD407FF72EAEA62C00AA422B /* Resources */,
+				DD5F60B12EB10CA10043B79F /* Set build number */,
 			);
 			buildRules = (
 			);
