@@ -46,32 +46,39 @@ class APIService {
             print("❌ Thinking mode is disabled")
         }
         
-        // If MCP is enabled, add tools to the request
+        // If MCP is enabled, add tools from all enabled servers to the request
         if settings.mcpEnabled {
-            // Fetch tools from MCP server
-            do {
-                let tools = try await MCPClient.shared.fetchTools()
-                
-                if !tools.isEmpty {
-                    requestBody["tools"] = tools.map { tool in
-                        var function: [String: Any] = [
-                            "name": tool.name,
-                            "description": tool.description ?? ""
-                        ]
-                        
-                        // Add parameters (input schema) if available
-                        if let inputSchema = tool.inputSchema {
-                            function["parameters"] = inputSchema
-                        }
-                        
-                        return [
-                            "type": "function",
-                            "function": function
-                        ] as [String: Any]
-                    }
+            var allTools: [MCPTool] = []
+            
+            // Fetch tools from all enabled MCP servers
+            for serverConfig in settings.getEnabledMCPServers() {
+                do {
+                    let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
+                    allTools.append(contentsOf: tools)
+                    print("📦 Fetched \(tools.count) tools from \(serverConfig.name)")
+                } catch {
+                    print("⚠️ Could not fetch tools from \(serverConfig.name): \(error)")
                 }
-            } catch {
-                print("⚠️ Could not fetch tools from MCP server: \(error)")
+            }
+            
+            if !allTools.isEmpty {
+                requestBody["tools"] = allTools.map { tool in
+                    var function: [String: Any] = [
+                        "name": tool.name,
+                        "description": tool.description ?? ""
+                    ]
+                    
+                    // Add parameters (input schema) if available
+                    if let inputSchema = tool.inputSchema {
+                        function["parameters"] = inputSchema
+                    }
+                    
+                    return [
+                        "type": "function",
+                        "function": function
+                    ] as [String: Any]
+                }
+                print("🔧 Sending \(allTools.count) total tools to LLM")
             }
         }
         
@@ -244,7 +251,23 @@ class APIService {
         let toolCallJSON = try JSONSerialization.data(withJSONObject: toolCallDict, options: .prettyPrinted)
         let toolCallString = String(data: toolCallJSON, encoding: .utf8) ?? ""
         
-        let result = try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments)
+        // Find which server has this tool and call it
+        let settings = SettingsManager.shared
+        var result = "Tool not found on any enabled server"
+        
+        for serverConfig in settings.getEnabledMCPServers() {
+            do {
+                // Check if this server has the tool by fetching its tools
+                let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
+                if tools.contains(where: { $0.name == toolCall.function.name }) {
+                    result = try await MCPClient.shared.callTool(name: toolCall.function.name, arguments: arguments, onServer: serverConfig)
+                    print("✅ Tool \(toolCall.function.name) executed on \(serverConfig.name)")
+                    break
+                }
+            } catch {
+                print("⚠️ Error checking tools on \(serverConfig.name): \(error)")
+            }
+        }
         
         // Try to parse and format the result as JSON
         var formattedResult = result
