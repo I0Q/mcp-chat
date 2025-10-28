@@ -197,7 +197,7 @@ class MCPClient {
         initRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         initRequest.timeoutInterval = 30
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             initRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -253,7 +253,7 @@ class MCPClient {
         notifRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         notifRequest.timeoutInterval = 10
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             notifRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -282,7 +282,7 @@ class MCPClient {
         toolsRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         toolsRequest.timeoutInterval = 30
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             toolsRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -467,7 +467,7 @@ class MCPClient {
         initRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         initRequest.timeoutInterval = 30
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             initRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -495,7 +495,7 @@ class MCPClient {
         notifRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         notifRequest.timeoutInterval = 10
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             notifRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
@@ -533,7 +533,7 @@ class MCPClient {
         messagesRequest.setValue("2024-11-05", forHTTPHeaderField: "MCP-Protocol-Version")
         messagesRequest.timeoutInterval = 30
         
-        if settings.mcpUseAuth && !accessToken.isEmpty {
+        if useAuth && !accessToken.isEmpty {
             messagesRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
         
