@@ -10,16 +10,6 @@ import LocalAuthentication
 
 struct SettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
-    
-    private func getVersionFromPlist() -> String {
-        guard let path = Bundle.main.path(forResource: "version", ofType: "plist"),
-              let plist = NSDictionary(contentsOfFile: path),
-              let version = plist["version"] as? String,
-              let buildNumber = plist["buildNumber"] as? String else {
-            return "Unknown (Unknown)"
-        }
-        return "\(version) (\(buildNumber))"
-    }
     @State private var showAlert = false
     @State private var alertMessage = ""
     @State private var showTokenInput = false
