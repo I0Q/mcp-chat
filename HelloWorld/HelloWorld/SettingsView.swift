@@ -233,13 +233,13 @@ struct MCPServerEditView: View {
             if let server = server {
                 Form {
                     Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
-                        TextField("Server Name", text: Binding(
+                        TextField("Server Name *", text: Binding(
                             get: { server.name },
                             set: { newValue in updateServer { $0.name = newValue } }
                         ))
                         .autocapitalization(.none)
                         
-                        TextField("MCP SSE URL", text: Binding(
+                        TextField("MCP SSE URL *", text: Binding(
                             get: { server.sseURL },
                             set: { newValue in updateServer { $0.sseURL = newValue } }
                         ))
