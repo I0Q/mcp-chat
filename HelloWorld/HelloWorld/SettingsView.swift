@@ -140,18 +140,6 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Settings")
-                        .font(.headline)
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .alert("Settings Saved", isPresented: $showAlert) {
-                Button("OK") { }
-            } message: {
-                Text(alertMessage)
-            }
             .sheet(isPresented: $showTokenInput) {
                 let _ = print("📄 Sheet body is rendering")
                 NavigationStack {
@@ -181,6 +169,18 @@ struct SettingsView: View {
                     .navigationTitle("Token")
                     .presentationDetents([.medium])
                 }
+            }
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.headline)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Settings Saved", isPresented: $showAlert) {
+                Button("OK") { }
+            } message: {
+                Text(alertMessage)
             }
             .onChange(of: settings.serverURL) {
                 guard let url = URL(string: settings.serverURL), url.scheme != nil else {
