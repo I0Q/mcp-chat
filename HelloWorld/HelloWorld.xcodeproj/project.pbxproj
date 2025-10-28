@@ -145,7 +145,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\n\n# Extract the current Git branch name\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\n\n# Define the path to the Info.plist\nINFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n\n# Update the CFBundleShortVersionString with the Git branch name\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString ${GIT_BRANCH}\" \"${INFO_PLIST}\"\n\necho \"Set version to: ${GIT_BRANCH}\"\n";
+			shellScript = "#!/bin/sh\n\necho \"Build phases: INFO_PLIST_PATH=${INFOPLIST_PATH}\"\necho \"Build phases: TARGET_BUILD_DIR=${TARGET_BUILD_DIR}\"\n\n# Extract the current Git branch name\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)\n\necho \"Current git branch: ${GIT_BRANCH}\"\n\n# Define the path to the Info.plist in the app bundle\nINFO_PLIST=\"${TARGET_BUILD_DIR}/../${INFOPLIST_PATH}\"\n\n# Try to find and update the Info.plist\necho \"Looking for Info.plist at: ${INFO_PLIST}\"\n\nif [ -f \"${INFO_PLIST}\" ]; then\n    echo \"Found Info.plist, updating...\"\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString ${GIT_BRANCH}\" \"${INFO_PLIST}\"\n    echo \"Successfully set version to: ${GIT_BRANCH}\"\nelse\n    echo \"Info.plist not found. Searching...\"\n    find \"${TARGET_BUILD_DIR}\" -name \"Info.plist\" -type f\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
