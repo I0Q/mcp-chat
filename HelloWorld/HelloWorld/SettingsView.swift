@@ -14,10 +14,12 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
-            Section(header: Text("LLM Server Configuration")) {
+            Section(header: Text("LLM Server Configuration"), footer: Text("Configure your local LLM server connection")) {
                 TextField("Server URL", text: $settings.serverURL)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
                 
                 Picker("Model", selection: $settings.selectedModel) {
                     Text("openai/gpt-oss-120b").tag("openai/gpt-oss-120b")
@@ -35,7 +37,7 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("MCP Server Configuration")) {
+            Section(header: Text("MCP Server Configuration"), footer: Text("Model Context Protocol for tool use and agent capabilities")) {
                 Toggle("Enable MCP", isOn: $settings.mcpEnabled)
                 
                 if settings.mcpEnabled {
@@ -70,7 +72,7 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Voice Transcription")) {
+            Section(header: Text("Voice Transcription"), footer: Text("Enable voice input with speech-to-text transcription")) {
                 Toggle("Enable Voice Input", isOn: $settings.voiceEnabled)
                 
                 if settings.voiceEnabled {
@@ -82,6 +84,8 @@ struct SettingsView: View {
                     TextField("Transcription Service URL", text: $settings.voiceServiceURL)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
                     
                     Text("Default: http://192.168.1.232:8005")
                         .font(.caption)
@@ -89,22 +93,29 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Information")) {
+            Section(header: Text("Information"), footer: Text("Version 1.0")) {
                 HStack {
                     Text("Server Status")
                     Spacer()
-                    Image(systemName: "circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    Text("Connected")
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption2)
+                        Text("Connected")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
                 }
             }
             
             Section(header: Text("About")) {
-                Text("Chat with your local LLM")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Chat with your local LLM")
+                        .font(.body)
+                    Text("Features: MCP tools, voice input, thinking tokens")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
