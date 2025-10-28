@@ -145,7 +145,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Version is now managed by static build settings\n# MARKETING_VERSION and CURRENT_PROJECT_VERSION are set in Build Settings\n";
+			shellScript = "# Git-based versioning script\ncd \"$SRCROOT/..\"\nif [ -f \"Scripts/update_version_from_git.sh\" ]; then\n    bash Scripts/update_version_from_git.sh\nelse\n    echo \"Version script not found - using static values\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -283,8 +283,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
-				MARKETING_VERSION = multi-mcp-7344f5e;
+				CURRENT_PROJECT_VERSION = 214;
+				MARKETING_VERSION = multi-mcp-e4f9690;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
@@ -314,7 +314,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = multi-mcp-7344f5e;
+				MARKETING_VERSION = multi-mcp-e4f9690;
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -338,8 +338,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 213;
-				MARKETING_VERSION = multi-mcp-7344f5e;
+				CURRENT_PROJECT_VERSION = 214;
+				MARKETING_VERSION = multi-mcp-e4f9690;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 8M2VPJD7R5;
 				ENABLE_APP_SANDBOX = YES;
@@ -369,7 +369,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = multi-mcp-7344f5e;
+				MARKETING_VERSION = multi-mcp-e4f9690;
 				PRODUCT_BUNDLE_IDENTIFIER = acacio.HelloWorld;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
