@@ -221,13 +221,13 @@ struct MCPServerEditView: View {
                     Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
                         TextField("Server Name", text: Binding(
                             get: { server.name },
-                            set: { updateServer { $0.name = $1 } }
+                            set: { newValue in updateServer { $0.name = newValue } }
                         ))
                         .autocapitalization(.none)
                         
                         TextField("MCP SSE URL", text: Binding(
                             get: { server.sseURL },
-                            set: { updateServer { $0.sseURL = $1 } }
+                            set: { newValue in updateServer { $0.sseURL = newValue } }
                         ))
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
@@ -236,12 +236,12 @@ struct MCPServerEditView: View {
                         
                         Toggle("Enable Server", isOn: Binding(
                             get: { server.enabled },
-                            set: { updateServer { $0.enabled = $1 } }
+                            set: { newValue in updateServer { $0.enabled = newValue } }
                         ))
                         
                         Toggle("Use Authentication", isOn: Binding(
                             get: { server.useAuth },
-                            set: { updateServer { $0.useAuth = $1 } }
+                            set: { newValue in updateServer { $0.useAuth = newValue } }
                         ))
                     }
                     
