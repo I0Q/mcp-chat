@@ -153,12 +153,16 @@ struct SettingsView: View {
                 Text(alertMessage)
             }
             .sheet(isPresented: $showTokenInput) {
-                print("📄 Sheet body is rendering")
-                return NavigationStack {
-                    Form {
-                        Section(header: Text("Access Token")) {
-                            SecureField("Token", text: $tokenInput)
-                        }
+                let _ = print("📄 Sheet body is rendering")
+                NavigationStack {
+                    VStack {
+                        Text("Access Token")
+                            .font(.headline)
+                            .padding()
+                        
+                        SecureField("Token", text: $tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .padding()
                         
                         HStack {
                             Button("Cancel") {
@@ -171,6 +175,8 @@ struct SettingsView: View {
                             }
                         }
                         .padding()
+                        
+                        Spacer()
                     }
                     .navigationTitle("Token")
                     .presentationDetents([.medium])
