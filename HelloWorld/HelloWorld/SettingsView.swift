@@ -154,7 +154,8 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showTokenInput) {
                 let _ = print("📄 Sheet is rendering - showTokenInput: true")
-                Form {
+                NavigationStack {
+                    Form {
                         Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
                             if showToken {
                                 Text(cachedToken)
@@ -166,32 +167,33 @@ struct SettingsView: View {
                                     .disableAutocorrection(true)
                             }
                         }
-                    
-                    Section {
-                        Button(action: {
-                            authenticateAndShowToken()
-                        }) {
-                            HStack {
-                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                Text(showToken ? "Hide Token" : "Show Token")
+                        
+                        Section {
+                            Button(action: {
+                                authenticateAndShowToken()
+                            }) {
+                                HStack {
+                                    Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                    Text(showToken ? "Hide Token" : "Show Token")
+                                }
                             }
                         }
                     }
-                }
-                .navigationTitle("Access Token")
-                .navigationBarTitleDisplayMode(.inline)
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            showTokenInput = false
+                    .navigationTitle("Access Token")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showTokenInput = false
+                            }
                         }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            settings.mcpAccessToken = tokenInput
-                            showTokenInput = false
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Save") {
+                                settings.mcpAccessToken = tokenInput
+                                showTokenInput = false
+                            }
                         }
                     }
                 }
