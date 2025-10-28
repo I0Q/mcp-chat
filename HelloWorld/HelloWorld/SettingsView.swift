@@ -46,73 +46,44 @@ struct SettingsView: View {
                 Toggle("Enable MCP", isOn: $settings.mcpEnabled)
                 
                 if settings.mcpEnabled {
-                    TextField("Server Name", text: $settings.mcpServerName)
-                        .autocapitalization(.none)
-                    
-                    TextField("MCP SSE URL", text: $settings.mcpSSEURL)
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-                    
-                    Toggle("Use Authentication", isOn: $settings.mcpUseAuth)
-                    
-                    if settings.mcpUseAuth {
-                        Button(action: {
-                            tokenInput = settings.mcpAccessToken
-                            showTokenInput = true
-                        }) {
-                            HStack {
-                                Image(systemName: "key.fill")
-                                Text(settings.mcpAccessToken.isEmpty ? "Set Access Token" : "Update Access Token")
-                                Spacer()
-                                if !settings.mcpAccessToken.isEmpty {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                    List {
+                        ForEach($settings.mcpServers) { $server in
+                            NavigationLink(destination: MCPServerEditView(server: $server)) {
+                                HStack {
+                                    if server.enabled {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                    } else {
+                                        Image(systemName: "circle")
+                                            .foregroundColor(.gray)
+                                    }
+                                    Text(server.name)
+                                        .foregroundColor(server.enabled ? .primary : .secondary)
+                                    Spacer()
                                 }
                             }
                         }
-                        .sheet(isPresented: $showTokenInput) {
-                            NavigationView {
-                                Form {
-                                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                                        if showToken {
-                                            Text(settings.mcpAccessToken)
-                                                .font(.system(.body, design: .monospaced))
-                                                .textSelection(.enabled)
-                                        } else {
-                                            SecureField("Token", text: $tokenInput)
-                                                .autocapitalization(.none)
-                                                .disableAutocorrection(true)
-                                        }
-                                    }
-                                    
-                                    Section {
-                                        Button(action: {
-                                            authenticateAndShowToken()
-                                        }) {
-                                            HStack {
-                                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
-                                                Text(showToken ? "Hide Token" : "Show Token")
-                                            }
-                                        }
-                                    }
-                                }
-                                .navigationTitle("Access Token")
-                                .navigationBarTitleDisplayMode(.inline)
-                                .toolbar {
-                                    ToolbarItem(placement: .cancellationAction) {
-                                        Button("Cancel") {
-                                            showTokenInput = false
-                                        }
-                                    }
-                                    ToolbarItem(placement: .confirmationAction) {
-                                        Button("Save") {
-                                            settings.mcpAccessToken = tokenInput
-                                            showTokenInput = false
-                                        }
-                                    }
-                                }
+                        .onDelete { indexSet in
+                            for index in indexSet {
+                                settings.deleteMCPServer(settings.mcpServers[index])
                             }
-                            .presentationDetents([.medium])
+                        }
+                    }
+                    .frame(height: CGFloat(min(settings.mcpServers.count, 5)) * 60)
+                    
+                    Button(action: {
+                        let newServer = MCPServerConfig(
+                            name: "New MCP Server",
+                            sseURL: "",
+                            accessToken: "",
+                            useAuth: false,
+                            enabled: true
+                        )
+                        settings.addMCPServer(newServer)
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Add MCP Server")
                         }
                     }
                     
@@ -241,6 +212,138 @@ struct SettingsView: View {
                 // Fallback if biometrics not available
                 showToken = true
                 authenticatedToken = settings.mcpAccessToken
+            }
+        }
+    }
+}
+
+struct MCPServerEditView: View {
+    @Binding var server: MCPServerConfig
+    @State private var showTokenInput = false
+    @State private var tokenInput = ""
+    @State private var showToken = false
+    @ObservedObject private var settings = SettingsManager.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var cachedToken = ""
+    
+    var body: some View {
+        Form {
+            Section(header: Text("Server Details"), footer: Text("Configure your MCP server connection")) {
+                TextField("Server Name", text: $server.name)
+                    .autocapitalization(.none)
+                
+                TextField("MCP SSE URL", text: $server.sseURL)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                
+                Toggle("Enable Server", isOn: $server.enabled)
+                
+                Toggle("Use Authentication", isOn: $server.useAuth)
+            }
+            
+            if server.useAuth {
+                Section(header: Text("Authentication")) {
+                    Button(action: {
+                        cachedToken = server.accessToken
+                        tokenInput = server.accessToken
+                        showTokenInput = true
+                    }) {
+                        HStack {
+                            Image(systemName: "key.fill")
+                            Text(server.accessToken.isEmpty ? "Set Access Token" : "Update Access Token")
+                            Spacer()
+                            if !server.accessToken.isEmpty {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Edit MCP Server")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showTokenInput) {
+            NavigationStack {
+                Form {
+                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                        if showToken {
+                            Text(cachedToken)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                        } else {
+                            SecureField("Token", text: $tokenInput)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        }
+                    }
+                    
+                    Section {
+                        Button(action: {
+                            authenticateAndShowToken()
+                        }) {
+                            HStack {
+                                Image(systemName: showToken ? "eye.slash.fill" : "eye.fill")
+                                Text(showToken ? "Hide Token" : "Show Token")
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Access Token")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            showTokenInput = false
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            server.accessToken = tokenInput
+                            settings.updateMCPServer(server)
+                            showTokenInput = false
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
+        }
+    }
+    
+    private func authenticateAndShowToken() {
+        if showToken {
+            // Simply hide the token
+            showToken = false
+            cachedToken = ""
+        } else {
+            // Authenticate with Face ID or Touch ID
+            let context = LAContext()
+            context.localizedCancelTitle = "Cancel"
+            
+            var error: NSError?
+            
+            if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+                let reason = "Please authenticate to view your access token"
+                
+                Task {
+                    do {
+                        let success = try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason)
+                        
+                        await MainActor.run {
+                            if success {
+                                showToken = true
+                            }
+                        }
+                    } catch {
+                        // Handle error silently
+                        print("Authentication failed: \(error.localizedDescription)")
+                    }
+                }
+            } else {
+                // Fallback if biometrics not available
+                showToken = true
             }
         }
     }
