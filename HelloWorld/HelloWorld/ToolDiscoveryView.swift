@@ -123,12 +123,23 @@ struct ToolDiscoveryView: View {
                 // Load current selection
                 selectedTools = Set(settings.selectedTools)
                 
-                // Load cached tools by default
+                // Load cached tools by default from all enabled MCP servers
                 Task {
                     do {
-                        let cachedTools = try await MCPClient.shared.fetchTools()
+                        var allTools: [MCPTool] = []
+                        
+                        // Fetch tools from all enabled MCP servers
+                        for serverConfig in settings.getEnabledMCPServers() {
+                            do {
+                                let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
+                                allTools.append(contentsOf: tools)
+                            } catch {
+                                print("⚠️ Could not fetch cached tools from \(serverConfig.name): \(error)")
+                            }
+                        }
+                        
                         await MainActor.run {
-                            discoveredTools = cachedTools
+                            discoveredTools = allTools
                             isLoadingCached = false
                         }
                     } catch {
@@ -149,12 +160,24 @@ struct ToolDiscoveryView: View {
         
         Task {
             do {
-                let tools = try await MCPClient.shared.fetchTools()
+                var allTools: [MCPTool] = []
+                
+                // Fetch tools from all enabled MCP servers
+                for serverConfig in settings.getEnabledMCPServers() {
+                    do {
+                        let tools = try await MCPClient.shared.fetchTools(for: serverConfig)
+                        allTools.append(contentsOf: tools)
+                        print("📦 Discovered \(tools.count) tools from \(serverConfig.name)")
+                    } catch {
+                        print("⚠️ Could not fetch tools from \(serverConfig.name): \(error)")
+                    }
+                }
+                
                 await MainActor.run {
-                    discoveredTools = tools
+                    discoveredTools = allTools
                     isDiscovering = false
                     
-                    if tools.isEmpty {
+                    if allTools.isEmpty {
                         errorMessage = "No tools discovered. Check your MCP server configuration."
                     }
                 }
