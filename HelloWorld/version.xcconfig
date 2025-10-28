@@ -1,1 +1,0 @@
-GIT_BRANCH_VERSION = $(shell git rev-parse --abbrev-ref HEAD)
