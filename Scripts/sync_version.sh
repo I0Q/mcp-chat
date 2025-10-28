@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Modern versioning using agvtool - no hardcoding!
-# This script syncs Xcode version with git tags and commit counts
+# Modern Xcode versioning script using agvtool
+# Based on: https://blog.reiterate.app/software/2024/07/09/automatic-versioning-with-xcode-and-git/
 
 set -euo pipefail
 
