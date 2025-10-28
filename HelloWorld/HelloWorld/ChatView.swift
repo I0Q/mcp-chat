@@ -373,6 +373,7 @@ struct ChatBubble: View {
             VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(message.content)
+                        .textSelection(.enabled)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(message.role == "user" ? Color.accentColor : Color(.systemGray5))
@@ -397,6 +398,7 @@ struct ChatBubble: View {
                         
                         if showThinking {
                             Text(thinking)
+                                .textSelection(.enabled)
                                 .font(.caption)
                                 .padding()
                                 .background(Color.yellow.opacity(0.2))

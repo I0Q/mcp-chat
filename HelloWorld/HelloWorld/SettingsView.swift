@@ -86,10 +86,10 @@ struct SettingsView: View {
                         .disableAutocorrection(true)
                         .keyboardType(.URL)
                         .textContentType(.URL)
-                    
-                    Text("Default: http://192.168.1.232:8005")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .placeholder(when: settings.voiceServiceURL.isEmpty) {
+                            Text("e.g., http://192.168.1.232:8005")
+                                .foregroundColor(.secondary)
+                        }
                 }
             }
             
@@ -142,6 +142,20 @@ struct SettingsView: View {
                     showAlert = true
                 }
             }
+        }
+    }
+}
+
+// View extension for placeholder support
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+        
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
         }
     }
 }
