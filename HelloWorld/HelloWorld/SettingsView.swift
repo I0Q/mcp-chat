@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var tokenInput = ""
     @State private var showToken = false
     @State private var authenticatedToken = ""
+    @State private var cachedToken = ""
     
     var body: some View {
         Form {
@@ -57,8 +58,9 @@ struct SettingsView: View {
                     
                     if settings.mcpUseAuth {
                         Button(action: {
-                            // Set token input immediately before showing sheet
-                            tokenInput = settings.mcpAccessToken
+                            // Cache the token value and reset state
+                            cachedToken = settings.mcpAccessToken
+                            tokenInput = cachedToken
                             showToken = false // Reset show state
                             showTokenInput = true
                         }) {
@@ -149,17 +151,17 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showTokenInput) {
                 Form {
-                    Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
-                        if showToken {
-                            Text(settings.mcpAccessToken)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        } else {
-                            SecureField("Token", text: $tokenInput)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
+                        Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
+                            if showToken {
+                                Text(cachedToken)
+                                    .font(.system(.body, design: .monospaced))
+                                    .textSelection(.enabled)
+                            } else {
+                                SecureField("Token", text: $tokenInput)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                            }
                         }
-                    }
                     
                     Section {
                         Button(action: {
@@ -228,7 +230,7 @@ struct SettingsView: View {
                         await MainActor.run {
                             if success {
                                 showToken = true
-                                authenticatedToken = settings.mcpAccessToken
+                                authenticatedToken = cachedToken
                             }
                         }
                     } catch {
@@ -241,7 +243,7 @@ struct SettingsView: View {
             } else {
                 // Fallback if biometrics not available
                 showToken = true
-                authenticatedToken = settings.mcpAccessToken
+                authenticatedToken = cachedToken
             }
         }
     }
