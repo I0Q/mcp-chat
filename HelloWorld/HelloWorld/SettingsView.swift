@@ -58,11 +58,14 @@ struct SettingsView: View {
                     
                     if settings.mcpUseAuth {
                         Button(action: {
+                            print("🔑 Button tapped - opening token sheet")
                             // Cache the token value and reset state
                             cachedToken = settings.mcpAccessToken
                             tokenInput = cachedToken
                             showToken = false // Reset show state
+                            print("🔑 Setting showTokenInput to true")
                             showTokenInput = true
+                            print("🔑 showTokenInput: \(showTokenInput)")
                         }) {
                             HStack {
                                 Image(systemName: "key.fill")
@@ -150,6 +153,7 @@ struct SettingsView: View {
                 Text(alertMessage)
             }
             .sheet(isPresented: $showTokenInput) {
+                let _ = print("📄 Sheet is rendering - showTokenInput: true")
                 Form {
                         Section(header: Text("Access Token"), footer: Text("Enter your MCP server access token")) {
                             if showToken {
